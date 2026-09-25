@@ -1,0 +1,28 @@
+{
+  "ticker": "Welcome to LIFE HOPE CENTER  •  Sunday Service 9:00 AM  •  Midweek Prayer Wednesday 6PM  •  Press F11 for fullscreen",
+  "announcements": [
+    {"title": "Welcome!", "sub": "LIFE HOPE CENTER — To God be the glory"},
+    {"title": "Sunday Service 9:00 AM", "sub": "Bring your family and friends"},
+    {"title": "Midweek Prayer — Wed 6PM", "sub": "Let us pray together"}
+  ],
+  "verses": [
+    {"text": "I am the way, the truth, and the life.", "ref": "John 14:6"},
+    {"text": "The Lord is my shepherd; I shall not want.", "ref": "Psalm 23:1"},
+    {"text": "I can do all things through Christ who strengthens me.", "ref": "Philippians 4:13"},
+    {"text": "Trust in the Lord with all your heart.", "ref": "Proverbs 3:5"}
+  ],
+  "slideSeconds": 10,
+  "weatherLat": 16.4023,
+  "weatherLon": 120.5960,
+  "outlookIcsUrl": "",
+  "orientation": "landscape",
+  "rooms": [
+    {"name": "Convention Hall", "location": "Convention Hall"},
+    {"name": "Conference Room 1", "location": "Conference Room 1"},
+    {"name": "Conference Room 2", "location": "Conference Room 2"},
+    {"name": "Executive Room", "location": "Executive Room"},
+    {"name": "Board Room", "location": "Board Room"}
+  ],
+  "photoOrder": [],
+  "photoAnnouncements": {}
+}
