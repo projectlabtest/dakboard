@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAKBOARD CONTROL</title>
+<style>
+  body{font-family:Segoe UI,Arial,sans-serif;background:#f1f5f9;margin:0;padding:20px}
+  .db-wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .db-card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:16px}
+  .db-card h2{margin:0 0 10px;font-size:16px}
+  .db-card label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;color:#444}
+  .db-card input[type=text],.db-card input[type=number],.db-card textarea{
+    width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;box-sizing:border-box}
+  .db-row{display:flex;gap:8px;margin-bottom:8px}
+  .db-row input{flex:1}
+  .db-btn{background:#0ea5e9;color:#fff;border:0;border-radius:6px;
+    padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
+  .db-btn.sec{background:#64748b}
+  .db-btn.danger{background:#dc2626}
+  .db-thumb .db-btn{padding:3px 8px;font-size:12px}
+  .db-thumbs{display:flex;flex-wrap:wrap;gap:10px}
+  .db-thumb{border:1px solid #ddd;border-radius:8px;padding:6px;width:180px;text-align:center}
+  .db-thumb img{width:100%;height:90px;object-fit:cover;border-radius:6px}
+  .db-thumb div{font-size:11px;word-break:break-all;margin:4px 0}
+  .db-thumb label{display:block;font-size:10px;font-weight:700;margin:6px 0 3px;color:#555}
+  .db-photo-ann{width:100%;padding:6px;border:1px solid #bbb;border-radius:6px;font-size:12px;box-sizing:border-box}
+  .db-room{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;background:#f8fafc}
+  .db-room-fields,.db-room-urls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .db-room label{display:block;font-size:10px;font-weight:700;color:#555;margin:0 0 3px}
+  .db-room input{padding:7px!important}
+  .db-room-urls{min-width:0}
+  @media(max-width:700px){
+    .db-room{grid-template-columns:1fr}
+    .db-room-fields,.db-room-urls{grid-template-columns:1fr}
+  }
+  #status{font-size:14px;font-weight:700;min-height:20px}
+  #status.ok{color:#059669} #status.err{color:#dc2626}
+</style>
+</head>
+<body>
+<div class="db-wrap">
+  <div class="db-card">
+    <h2>DAKBOARD CONTROL</h2>
+    <p style="font-size:13px;color:#555;margin:0">Everything shown on the TV display is changed here. After Save, all TV outputs refresh automatically within about 2 seconds.</p>
+    <div id="status"></div>
+  </div>
+
+  <div class="db-card">
+    <h2>Moving text (bottom)</h2>
+    <label>TICKER TEXT</label>
+    <textarea id="ticker" rows="3"></textarea>
+  </div>
+
+  <div class="db-card">
+    <h2>Slideshow announcements</h2>
+    <div id="anns"></div>
+    <button type="button" class="db-btn sec" onclick="addAnn('','')">+ Add slide</button>
+  </div>
+
+  <div class="db-card">
+    <h2>Bible verses (rotating)</h2>
+    <label>ONE PER LINE — format: Text | Reference</label>
+    <textarea id="verses" rows="6"></textarea>
+  </div>
+
+  <div class="db-card">
+    <h2>Display settings</h2>
+    <label>SLIDE DURATION (seconds, 3–120)</label>
+    <input type="number" id="slideSeconds" min="3" max="120" value="10">
+    <label>WEATHER LATITUDE</label>
+    <input type="text" id="weatherLat" value="16.4023">
+    <label>WEATHER LONGITUDE</label>
+    <input type="text" id="weatherLon" value="120.5960">
+    <p style="font-size:12px;color:#777">Baguio default: 16.4023, 120.5960</p>
+    <label>OUTLOOK CALENDAR ICS URL (optional)</label>
+    <input type="text" id="outlookIcsUrl" value="" placeholder="https://outlook.live.com/.../calendar.ics">
+    <p style="font-size:12px;color:#777">Sa Outlook: Calendar → Share → Publish calendar → kopyahin ang ICS link at i-paste dito. Blank kung ayaw.</p>
+    <label>BOARD ORIENTATION</label>
+    <select id="orientation" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
+      <option value="landscape">Landscape — wide TV / monitor</option>
+      <option value="portrait">Portrait — vertical display</option>
+    </select>
+    <label>LANDSCAPE OUTPUT URL</label>
+    <input type="text" id="landscapeOutputUrl" readonly onclick="this.select()">
+    <label>PORTRAIT OUTPUT URL</label>
+    <input type="text" id="portraitOutputUrl" readonly onclick="this.select()">
+    <p style="font-size:12px;color:#777;margin:6px 0 0">Click a URL above, then press Ctrl+C to copy it.</p>
+  </div>
+
+  <div class="db-card">
+    <h2>Room outputs</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
+    <div id="rooms"></div>
+    <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
+  </div>
+
+  <div class="db-card">
+    <button type="button" class="db-btn" onclick="save()">SAVE — update the board</button>
+  </div>
+
+  <div class="db-card">
+    <h2>Photos (slideshow background)</h2>
+    <div class="db-row">
+      <input type="file" id="photoFile" accept=".jpg,.jpeg,.png,.webp,.gif" multiple>
+      <button type="button" class="db-btn" onclick="upload()">Upload</button>
+    </div>
+    <p style="font-size:12px;color:#777;margin:0 0 8px">Puwede pumili ng hanggang 10 photos nang sabay-sabay. Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
+    <div class="db-thumbs" id="thumbs"></div>
+  </div>
+</div>
+
+<script>
+let S = null;
+const DEFAULT_ROOMS = [
+  {name:"Convention Hall", location:"Convention Hall"},
+  {name:"Conference Room 1", location:"Conference Room 1"},
+  {name:"Conference Room 2", location:"Conference Room 2"},
+  {name:"Executive Room", location:"Executive Room"},
+  {name:"Board Room", location:"Board Room"}
+];
+let icsUrlEdited = false;
+document.getElementById("outlookIcsUrl").addEventListener("input", () => {
+  icsUrlEdited = true;
+});
+document.getElementById("landscapeOutputUrl").value = location.origin + "/dakboard?orientation=landscape";
+document.getElementById("portraitOutputUrl").value = location.origin + "/dakboard?orientation=portrait";
+
+function status(msg, cls){
+  const el = document.getElementById("status");
+  el.textContent = msg; el.className = cls || "";
+}
+
+function addAnn(title, sub){
+  const d = document.createElement("div");
+  d.className = "db-row";
+  const t = document.createElement("input");
+  t.type = "text"; t.placeholder = "Title"; t.value = title || "";
+  const s = document.createElement("input");
+  s.type = "text"; s.placeholder = "Subtitle"; s.value = sub || "";
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "db-btn danger"; b.textContent = "×";
+  b.onclick = () => d.remove();
+  d.append(t, s, b);
+  document.getElementById("anns").appendChild(d);
+}
+
+function roomValue(room){
+  if(typeof room === "string") return {name:room.trim(), location:room.trim()};
+  if(room && typeof room === "object"){
+    return {name:String(room.name || "").trim(), location:String(room.location || room.name || "").trim()};
+  }
+  return {name:"", location:""};
+}
+
+function addRoom(room){
+  const values = roomValue(room);
+  const row = document.createElement("div");
+  row.className = "db-room";
+  const fields = document.createElement("div");
+  fields.className = "db-room-fields";
+  const nameField = document.createElement("div");
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "DISPLAY NAME";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text"; nameInput.placeholder = "Executive Room"; nameInput.value = values.name;
+  nameField.append(nameLabel, nameInput);
+  const locationField = document.createElement("div");
+  const locationLabel = document.createElement("label");
+  locationLabel.textContent = "OUTLOOK LOCATION";
+  const locationInput = document.createElement("input");
+  locationInput.type = "text"; locationInput.placeholder = "Executive Meeting Room"; locationInput.value = values.location;
+  locationField.append(locationLabel, locationInput);
+  fields.append(nameField, locationField);
+  const urls = document.createElement("div");
+  urls.className = "db-room-urls";
+  const landscapeField = document.createElement("div");
+  const landscapeLabel = document.createElement("label");
+  landscapeLabel.textContent = "LANDSCAPE URL";
+  const landscapeInput = document.createElement("input");
+  landscapeInput.type = "text"; landscapeInput.readOnly = true;
+  landscapeField.append(landscapeLabel, landscapeInput);
+  const portraitField = document.createElement("div");
+  const portraitLabel = document.createElement("label");
+  portraitLabel.textContent = "PORTRAIT URL";
+  const portraitInput = document.createElement("input");
+  portraitInput.type = "text"; portraitInput.readOnly = true;
+  portraitField.append(portraitLabel, portraitInput);
+  urls.append(landscapeField, portraitField);
+  const remove = document.createElement("button");
+  remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
+  remove.onclick = () => row.remove();
+  const updateUrls = () => {
+    const name = nameInput.value.trim();
+    const suffix = name ? "&room=" + encodeURIComponent(name) : "";
+    landscapeInput.value = location.origin + "/dakboard/room?orientation=landscape" + suffix;
+    portraitInput.value = location.origin + "/dakboard/room?orientation=portrait" + suffix;
+  };
+  nameInput.addEventListener("input", updateUrls);
+  row.append(fields, urls, remove);
+  document.getElementById("rooms").appendChild(row);
+  updateUrls();
+}
+
+function renderRooms(){
+  const box = document.getElementById("rooms");
+  box.innerHTML = "";
+  const rooms = Array.isArray(S && S.rooms) ? S.rooms : DEFAULT_ROOMS;
+  rooms.forEach(room => addRoom(room));
+}
+
+function collectRooms(){
+  const rooms = [];
+  const seen = new Set();
+  document.querySelectorAll("#rooms .db-room").forEach(row => {
+    const name = row.querySelector(".db-room-fields input").value.trim();
+    const location = row.querySelectorAll(".db-room-fields input")[1].value.trim() || name;
+    const key = name.toLowerCase();
+    if(name && !seen.has(key)){
+      seen.add(key);
+      rooms.push({name:name, location:location});
+    }
+  });
+  return rooms;
+}
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function applySavedSettings(out){
+  S = out;
+  icsUrlEdited = false;
+}
+
+async function load(){
+  try{
+    const r = await fetch("/api/dakboard/settings");
+    S = await r.json();
+    if(!Array.isArray(S.photoOrder)) S.photoOrder = [];
+    if(!Array.isArray(S.rooms)){
+      S.rooms = DEFAULT_ROOMS.map(room => ({name:room.name, location:room.location}));
+    }
+    if(!S.photoAnnouncements || typeof S.photoAnnouncements !== "object" || Array.isArray(S.photoAnnouncements)){
+      S.photoAnnouncements = {};
+    }
+  }catch(e){ status("Cannot reach server.", "err"); return; }
+  document.getElementById("ticker").value = S.ticker || "";
+  document.getElementById("anns").innerHTML = "";
+  (S.announcements || []).forEach(a => addAnn(a.title, a.sub));
+  if(!(S.announcements || []).length) addAnn("", "");
+  document.getElementById("verses").value =
+    (S.verses || []).map(v => (v.text || "") + " | " + (v.ref || "")).join("\n");
+  document.getElementById("slideSeconds").value = S.slideSeconds || 10;
+  document.getElementById("weatherLat").value = S.weatherLat;
+  document.getElementById("weatherLon").value = S.weatherLon;
+  icsUrlEdited = false;
+  document.getElementById("outlookIcsUrl").value = S.outlookIcsUrl || "";
+  document.getElementById("orientation").value = S.orientation || "landscape";
+  renderRooms();
+  loadPhotos();
+}
+
+let currentPhotos = [];
+
+async function loadPhotos(){
+  const box = document.getElementById("thumbs");
+  box.innerHTML = "";
+  try{
+    const r = await fetch("/api/dakboard/photos");
+    currentPhotos = await r.json();
+  }catch(e){ currentPhotos = []; }
+  if(!currentPhotos.length){
+    box.innerHTML = "<p style='font-size:13px;color:#777'>No photos yet — upload above (up to 10 at once).</p>";
+    return;
+  }
+  const order = orderedNames(currentPhotos);
+  order.forEach((name, idx) => {
+    const d = document.createElement("div");
+    d.className = "db-thumb";
+    const img = document.createElement("img");
+    img.src = "/photos/" + name; img.alt = "";
+    const cap = document.createElement("div");
+    cap.textContent = (idx + 1) + ". " + name;
+    d.appendChild(img); d.appendChild(cap);
+    const annLabel = document.createElement("label");
+    annLabel.textContent = "SLIDE DISPLAY";
+    const annSelect = document.createElement("select");
+    annSelect.className = "db-photo-ann";
+    const photoOnly = document.createElement("option");
+    photoOnly.value = "";
+    photoOnly.textContent = "Photo only";
+    annSelect.appendChild(photoOnly);
+    (S.announcements || []).forEach((a,ai)=>{
+      const opt = document.createElement("option");
+      opt.value = String(ai);
+      opt.textContent = (ai + 1) + ". " + (a.title || ("Announcement " + (ai + 1)));
+      annSelect.appendChild(opt);
+    });
+    annSelect.value = S.photoAnnouncements[name] == null ? "" : String(S.photoAnnouncements[name]);
+    annSelect.onchange = () => setPhotoAnnouncement(name, annSelect.value);
+    d.appendChild(annLabel); d.appendChild(annSelect);
+    const row = document.createElement("div");
+    row.style.display = "flex"; row.style.gap = "4px"; row.style.justifyContent = "center";
+    const up = document.createElement("button");
+    up.className = "db-btn sec"; up.textContent = "▲"; up.title = "Move earlier";
+    up.disabled = (idx === 0);
+    up.onclick = () => movePhoto(name, -1);
+    const dn = document.createElement("button");
+    dn.className = "db-btn sec"; dn.textContent = "▼"; dn.title = "Move later";
+    dn.disabled = (idx === order.length - 1);
+    dn.onclick = () => movePhoto(name, 1);
+    const del = document.createElement("button");
+    del.className = "db-btn danger"; del.textContent = "Delete";
+    del.onclick = async () => {
+      if(!confirm("Delete " + name + "?")) return;
+      const r = await fetch("/api/dakboard/photos/delete", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename: name})});
+      if(r.ok){ status("Photo deleted.", "ok"); loadPhotos(); }
+      else status("Delete failed.", "err");
+    };
+    row.append(up, dn, del);
+    d.appendChild(row);
+    box.appendChild(d);
+  });
+}
+
+async function setPhotoAnnouncement(name, value){
+  const out = collectSettings();
+  if(value === "") delete out.photoAnnouncements[name];
+  else out.photoAnnouncements[name] = parseInt(value, 10);
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    status("Photo display saved — all TV outputs update automatically.", "ok");
+  }else{
+    status("Photo display save failed.", "err");
+    loadPhotos();
+  }
+}
+
+function collectSettings(){
+  const anns = [];
+  document.querySelectorAll("#anns .db-row").forEach(row => {
+    const t = row.children[0].value.trim(), s = row.children[1].value.trim();
+    if(t || s) anns.push({title: t, sub: s});
+  });
+  const verses = [];
+  document.getElementById("verses").value.split("\n").forEach(line => {
+    line = line.trim();
+    if(!line) return;
+    const i = line.indexOf("|");
+    if(i >= 0) verses.push({text: line.slice(0, i).trim(), ref: line.slice(i + 1).trim()});
+    else verses.push({text: line, ref: ""});
+  });
+  const out = {
+    ticker: document.getElementById("ticker").value.trim(),
+    announcements: anns.length ? anns : (S.announcements || []),
+    verses: verses.length ? verses : (S.verses || []),
+    slideSeconds: Math.max(3, Math.min(120,
+      parseInt(document.getElementById("slideSeconds").value, 10) || 10)),
+    weatherLat: parseFloat(document.getElementById("weatherLat").value),
+    weatherLon: parseFloat(document.getElementById("weatherLon").value),
+    outlookIcsUrl: icsUrlEdited
+      ? document.getElementById("outlookIcsUrl").value.trim()
+      : ((S && S.outlookIcsUrl) || ""),
+    orientation: document.getElementById("orientation").value,
+    rooms: collectRooms(),
+    photoOrder: (S.photoOrder || []).slice(),
+    photoAnnouncements: Object.assign({}, S.photoAnnouncements || {})
+  };
+  if(!isFinite(out.weatherLat)) out.weatherLat = S.weatherLat;
+  if(!isFinite(out.weatherLon)) out.weatherLon = S.weatherLon;
+  return out;
+}
+
+async function postSettings(out){
+  try{
+    const clearIcs = icsUrlEdited && !(out.outlookIcsUrl || "").trim();
+    const endpoint = clearIcs
+      ? "/api/dakboard/settings?clearOutlookIcs=true"
+      : "/api/dakboard/settings";
+    const r = await fetch(endpoint, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(out)});
+    return r.ok;
+  }catch(e){ return false; }
+}
+
+async function save(){
+  const out = collectSettings();
+  if(await postSettings(out)){ applySavedSettings(out); status("Saved! Both TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
+  else status("Save failed.", "err");
+}
+
+/* photo order: filenames in display order */
+function orderedNames(srcs){
+  const names = (srcs || []).map(src => src.substring(src.lastIndexOf("/") + 1));
+  let order = (S.photoOrder && S.photoOrder.length) ? S.photoOrder.slice() : [];
+  names.forEach(n => { if(order.indexOf(n) < 0) order.push(n); });
+  return order.filter(n => names.indexOf(n) >= 0);
+}
+
+async function movePhoto(name, dir){
+  const order = orderedNames(currentPhotos);
+  const i = order.indexOf(name), j = i + dir;
+  if(i < 0 || j < 0 || j >= order.length) return;
+  const t = order[i]; order[i] = order[j]; order[j] = t;
+  const out = collectSettings();
+  out.photoOrder = order;
+  if(await postSettings(out)){ applySavedSettings(out); status("Photo order saved — all TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
+  else status("Save failed.", "err");
+}
+
+function upload(){
+  const files = Array.from(document.getElementById("photoFile").files || []);
+  if(!files.length){ status("Choose photos first.", "err"); return; }
+  if(files.length > 10){ status("Maximum 10 photos at a time.", "err"); return; }
+  let i = 0, ok = 0;
+  status("Uploading 1/" + files.length + "...", "");
+  async function next(){
+    if(i >= files.length){
+      document.getElementById("photoFile").value = "";
+      if(ok > 0){
+        try{
+          const pr = await fetch("/api/dakboard/photos");
+          if(pr.ok) currentPhotos = await pr.json();
+        }catch(e){}
+        const out = collectSettings();
+        out.photoOrder = orderedNames(currentPhotos);
+        if(await postSettings(out)){ applySavedSettings(out); }
+      }
+      status("Uploaded " + ok + "/" + files.length + " photo(s).", ok ? "ok" : "err");
+      loadPhotos();
+      return;
+    }
+    const f = files[i++];
+    status("Uploading " + i + "/" + files.length + ": " + f.name, "");
+    const rd = new FileReader();
+    rd.onload = async () => {
+      try{
+        const r = await fetch("/api/dakboard/photos/upload", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({filename: f.name, data: rd.result})});
+        if(r.ok) ok++;
+        else{
+          const j = await r.json().catch(() => ({}));
+          status("Failed on " + f.name + ": " + (j.error || r.status), "err");
+        }
+      }catch(e){ status("Cannot reach server.", "err"); }
+      next();
+    };
+    rd.onerror = () => { status("Cannot read " + f.name + ".", "err"); next(); };
+    rd.readAsDataURL(f);
+  }
+  next();
+}
+
+load();
+</script>
+</body>
+</html>

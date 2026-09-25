@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIFE HOPE CENTER — Room Display</title>
+<style>
+  :root{
+    --bg:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%); --panel:#f5c48b; --panel-2:#b9d6b7; --text:#173b63;
+    --muted:#315b7d; --line:#2f8f55; --accent:#1d5687; --success:#3f875f;
+    --yellow:#2a6b9b; --red:#a9564e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;min-height:100%;background:var(--bg);color:var(--text)}
+  body{font-family:Segoe UI,Arial,sans-serif;overflow:auto}
+  .room-screen{min-height:100vh;min-height:100dvh;padding:clamp(18px,3.5vmin,48px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(16px,2.5vmin,30px)}
+  .room-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;border-bottom:2px solid var(--line);padding-bottom:clamp(14px,2.5vmin,28px)}
+  .brand{font-size:clamp(13px,2vmin,22px);font-weight:700;letter-spacing:clamp(2px,.5vmin,6px);color:var(--accent)}
+  .eyebrow{margin-top:clamp(8px,1.6vmin,18px);font-size:clamp(11px,1.6vmin,18px);letter-spacing:2px;color:var(--muted)}
+  .room-name{margin-top:4px;font-size:clamp(30px,6vmin,72px);line-height:1.05;color:var(--text)}
+  .time-block{text-align:right;white-space:nowrap}
+  .clock{font-size:clamp(40px,7vmin,86px);font-weight:700;line-height:1;color:var(--accent)}
+  .date{margin-top:8px;font-size:clamp(14px,2.1vmin,25px);color:var(--muted)}
+  .room-main{min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);gap:clamp(14px,2.5vmin,30px)}
+  .panel{min-width:0;min-height:0;overflow:auto;border:2px solid var(--line);border-radius:18px;background:linear-gradient(145deg,var(--panel),#e5a06c);padding:clamp(18px,3.5vmin,42px)}
+  .primary{display:flex;flex-direction:column;justify-content:center;min-height:clamp(280px,48vh,600px)}
+  .primary.has-meeting{border-color:rgba(47,143,85,.95);box-shadow:0 0 0 2px rgba(47,143,85,.18),0 18px 60px rgba(0,0,0,.2)}
+  .panel-top{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .panel-label{font-size:clamp(12px,1.7vmin,18px);font-weight:700;letter-spacing:1.5px;color:var(--muted)}
+  .status-pill{display:inline-block;border-radius:999px;padding:clamp(5px,.8vmin,9px) clamp(10px,1.5vmin,18px);font-size:clamp(10px,1.3vmin,15px);font-weight:800;letter-spacing:.6px}
+  .status-pill.available{background:rgba(49,91,125,.12);color:var(--muted)}
+  .status-pill.ongoing{background:rgba(29,86,135,.18);color:var(--accent)}
+  .status-pill.upcoming{background:rgba(42,107,155,.16);color:var(--yellow)}
+  .meeting-title{margin-top:clamp(18px,3vmin,38px);font-size:clamp(34px,6.2vmin,76px);font-weight:800;line-height:1.12;overflow-wrap:anywhere}
+  .range{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:clamp(8px,1.4vmin,18px);margin-top:clamp(22px,4vmin,48px)}
+  .range-label{font-size:clamp(12px,1.7vmin,18px);font-weight:800;letter-spacing:1.1px;color:var(--accent)}
+  .range-value{font-size:clamp(20px,3.2vmin,38px);font-weight:700;color:var(--text);overflow-wrap:anywhere}
+  .range-arrow{font-size:clamp(16px,2.2vmin,26px);color:var(--accent)}
+  .meta{margin-top:clamp(16px,2.5vmin,28px);font-size:clamp(14px,2.1vmin,24px);color:var(--muted)}
+  .next-panel{display:flex;flex-direction:column;justify-content:center;min-height:clamp(220px,38vh,480px);background:linear-gradient(145deg,var(--panel-2),#a9c9dc)}
+  .rundown-panel{justify-content:flex-start}
+  .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);max-height:clamp(240px,36vh,430px);overflow:auto}
+  .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
+  .rundown-row:first-child{border-top:0}
+  .rundown-row.is-this-room{background:rgba(79,143,85,.12)}
+  .rundown-time{font-size:clamp(12px,1.7vmin,18px);font-weight:800;color:var(--accent);overflow-wrap:anywhere}
+  .rundown-name{min-width:0;font-size:clamp(14px,1.9vmin,22px);font-weight:700;overflow-wrap:anywhere}
+  .rundown-room{display:flex;min-width:0;flex-direction:column;gap:3px;color:var(--text);font-size:clamp(13px,1.8vmin,21px);font-weight:700}
+  .rundown-room-name{overflow-wrap:anywhere}
+  .rundown-status{font-size:clamp(11px,1.3vmin,15px);font-weight:800;letter-spacing:.35px;color:var(--yellow)}
+  .rundown-status.ongoing{color:var(--accent)}
+  .upcoming-panel{min-width:0;border:2px solid var(--line);border-radius:18px;background:rgba(255,230,193,.88);padding:clamp(14px,2.2vmin,28px)}
+  .room-message-panel{display:flex;min-height:clamp(110px,16vh,180px);flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .room-status-label{margin-bottom:clamp(6px,1vmin,12px);font-size:clamp(12px,1.7vmin,20px);font-weight:800;letter-spacing:1.5px;color:var(--muted)}
+  .room-message-panel.has-meeting{border-color:rgba(47,143,85,.95);box-shadow:0 0 0 2px rgba(47,143,85,.14)}
+  .room-message{font-size:clamp(28px,5.5vmin,68px);font-weight:800;letter-spacing:1px;color:var(--accent)}
+  .room-message.ongoing{color:var(--accent)}
+  .room-message.available{color:var(--accent)}
+  .room-message-detail{margin-top:8px;font-size:clamp(15px,2.2vmin,26px);font-weight:700;color:var(--text)}
+  .empty{padding:clamp(12px,2vmin,24px) 0;color:var(--muted);font-size:clamp(12px,1.7vmin,20px)}
+  .footer{text-align:center;color:var(--muted);font-size:clamp(11px,1.4vmin,16px);letter-spacing:.8px}
+  body.portrait .room-screen{max-width:1100px;margin:0 auto}
+  body.portrait .room-header{align-items:flex-start}
+  body.portrait .room-main{grid-template-columns:1fr;grid-template-rows:minmax(0,1.2fr) minmax(0,.8fr)}
+  body.portrait .primary{min-height:360px}
+  body.portrait .next-panel{min-height:220px}
+  @media(max-width:800px){
+    .room-screen{padding:16px;gap:16px}
+     .room-header{gap:12px}
+     .room-name{font-size:clamp(28px,8vw,50px)}
+     .clock{font-size:clamp(34px,9vw,60px)}
+     .date{font-size:14px}
+     .room-main{grid-template-columns:1fr;grid-template-rows:auto auto}
+     .primary{min-height:360px}
+     .next-panel{min-height:220px}
+     .room-message{font-size:clamp(26px,9vw,52px)}
+  }
+</style>
+</head>
+<body>
+<div class="room-screen">
+  <header class="room-header">
+    <div>
+      <div class="brand">LIFE HOPE CENTER</div>
+      <div class="eyebrow">ROOM DISPLAY</div>
+      <h1 class="room-name" id="roomName">ROOM NOT SELECTED</h1>
+    </div>
+    <div class="time-block">
+      <div class="clock" id="clock">--:--</div>
+      <div class="date" id="date">...</div>
+    </div>
+  </header>
+
+  <main class="room-main">
+     <section class="panel primary" id="currentPanel">
+       <h2 class="meeting-title" id="currentTitle">Room is available</h2>
+      <div class="range" id="currentRange"></div>
+      <div class="meta" id="currentMeta">No upcoming meeting</div>
+    </section>
+
+    <section class="panel next-panel rundown-panel">
+      <div class="panel-top">
+        <div class="panel-label">EVENT RUNDOWN</div>
+        <div class="upcoming-count" id="rundownCount">0 scheduled</div>
+      </div>
+      <div class="rundown-list" id="rundownList"></div>
+    </section>
+  </main>
+
+     <section class="upcoming-panel room-message-panel" id="roomMessagePanel">
+       <div class="room-status-label">ROOM STATUS</div>
+       <div class="room-message" id="roomMessage">AVAILABLE ROOM</div>
+       <div class="room-message-detail" id="roomMessageDetail">No meeting currently in this room</div>
+     </section>
+
+  <footer class="footer">START AND END TIMES ARE SHOWN IN ASIA/MANILA TIME</footer>
+</div>
+<script>
+const DEFAULT_ROOMS = [
+  {name:"Convention Hall", location:"Convention Hall"},
+  {name:"Conference Room 1", location:"Conference Room 1"},
+  {name:"Conference Room 2", location:"Conference Room 2"},
+  {name:"Executive Room", location:"Executive Room"},
+  {name:"Board Room", location:"Board Room"}
+];
+const query = new URLSearchParams(location.search);
+const roomQuery = (query.get("room") || "").trim();
+let settings = {rooms:[]};
+let roomConfig = null;
+let currentEvents = [];
+let lastSettings = "";
+document.body.classList.toggle("portrait", query.get("orientation") === "portrait");
+
+function tick(){
+  const now = new Date();
+  document.getElementById("clock").textContent = new Intl.DateTimeFormat("en-PH", {
+    timeZone:"Asia/Manila", hour:"numeric", minute:"2-digit", hour12:true
+  }).format(now);
+  document.getElementById("date").textContent = new Intl.DateTimeFormat("en-PH", {
+    timeZone:"Asia/Manila", weekday:"long", month:"long", day:"numeric", year:"numeric"
+  }).format(now);
+}
+
+function normalizeRoomName(value){
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function roomEntries(){
+  const rooms = Array.isArray(settings.rooms) ? settings.rooms : DEFAULT_ROOMS;
+  return rooms.map(room => {
+    if(typeof room === "string") return {name:room.trim(), location:room.trim()};
+    if(room && typeof room === "object" && typeof room.name === "string"){
+      return {name:room.name.trim(), location:String(room.location || room.name).trim()};
+    }
+    return null;
+  }).filter(room => room && room.name);
+}
+
+function resolveRoomConfig(value){
+  const wanted = normalizeRoomName(value);
+  return roomEntries().find(room => normalizeRoomName(room.name) === wanted)
+    || {name:String(value || "").trim(), location:String(value || "").trim()};
+}
+
+function eventStatus(event){
+  const start = Date.parse(event && event.start || "");
+  const end = Date.parse(event && event.end || "");
+  const now = Date.now();
+  if(Number.isFinite(start) && Number.isFinite(end)){
+    if(now >= end) return "ended";
+    if(now >= start) return "ongoing";
+  }
+  return "upcoming";
+}
+
+function eventsForRoom(){
+  if(!roomConfig) return [];
+  const wanted = normalizeRoomName(roomConfig.location || roomConfig.name);
+  return currentEvents.filter(event => event
+    && typeof event.location === "string"
+    && normalizeRoomName(event.location) === wanted
+    && eventStatus(event) !== "ended")
+    .sort((a, b) => Date.parse(a.start || 0) - Date.parse(b.start || 0));
+}
+
+function formatDate(value){
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone:"Asia/Manila", weekday:"short", month:"short", day:"numeric"
+  }).format(new Date(value));
+}
+
+function formatTime(value){
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone:"Asia/Manila", hour:"numeric", minute:"2-digit", hour12:true
+  }).format(new Date(value));
+}
+
+function sameManilaDate(first, second){
+  const options = {timeZone:"Asia/Manila", year:"numeric", month:"2-digit", day:"2-digit"};
+  return new Intl.DateTimeFormat("en-CA", options).format(new Date(first))
+    === new Intl.DateTimeFormat("en-CA", options).format(new Date(second));
+}
+
+function momentLabel(value, other){
+  const time = formatTime(value);
+  return sameManilaDate(value, other) ? time : formatDate(value) + " " + time;
+}
+
+function addRangePart(container, label, value){
+  const labelEl = document.createElement("span");
+  labelEl.className = "range-label";
+  labelEl.textContent = label;
+  const valueEl = document.createElement("span");
+  valueEl.className = "range-value";
+  valueEl.textContent = value;
+  container.append(labelEl, valueEl);
+}
+
+function setRange(container, event){
+  container.replaceChildren();
+  if(!event){
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "No meeting scheduled";
+    container.appendChild(empty);
+    return;
+  }
+  if(event.allDay){
+    addRangePart(container, "START DATE", formatDate(event.start));
+    addRangePart(container, "END DATE", formatDate(event.end));
+  }else{
+    addRangePart(container, "START TIME", momentLabel(event.start, event.end));
+    addRangePart(container, "END TIME", momentLabel(event.end, event.start));
+  }
+}
+
+function setMeta(element, event){
+  if(!event){
+    element.textContent = "Waiting for schedule";
+    return;
+  }
+  element.textContent = (event.day || formatDate(event.start)) + (event.location ? "  •  " + event.location : "");
+}
+
+function scheduledEvents(){
+  return currentEvents
+    .filter(event => event && eventStatus(event) !== "ended")
+    .sort((a, b) => Date.parse(a.start || 0) - Date.parse(b.start || 0));
+}
+
+function renderRundown(events){
+  const rundown = document.getElementById("rundownList");
+  const count = document.getElementById("rundownCount");
+  rundown.replaceChildren();
+  count.textContent = events.length + " scheduled";
+  if(!events.length){
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "No upcoming meetings";
+    rundown.appendChild(empty);
+    return;
+  }
+  events.slice(0, 6).forEach(event => {
+    const statusValue = eventStatus(event);
+    const currentRoom = roomConfig && normalizeRoomName(event.location || "") === normalizeRoomName(roomConfig.location || roomConfig.name);
+    const row = document.createElement("div");
+    row.className = "rundown-row" + (currentRoom ? " is-this-room" : "");
+    const time = document.createElement("div");
+    time.className = "rundown-time";
+    time.textContent = event.allDay ? "ALL DAY" : (event.time || momentLabel(event.start, event.end));
+    const name = document.createElement("div");
+    name.className = "rundown-name";
+    name.textContent = event.title || "Untitled meeting";
+    const room = document.createElement("div");
+    room.className = "rundown-room";
+    const roomName = document.createElement("span");
+    roomName.className = "rundown-room-name";
+    roomName.textContent = (currentRoom ? "THIS ROOM · " : "") + (event.location || "Unassigned");
+    const status = document.createElement("span");
+    status.className = "rundown-status " + (statusValue === "ongoing" ? "ongoing" : "upcoming");
+    status.textContent = statusValue === "ongoing" ? "ON-GOING" : "UPCOMING";
+    room.append(roomName, status);
+    row.append(time, name, room);
+    rundown.appendChild(row);
+  });
+}
+
+function renderRoomMessage(ongoing){
+  const panel = document.getElementById("roomMessagePanel");
+  const message = document.getElementById("roomMessage");
+  const detail = document.getElementById("roomMessageDetail");
+  panel.classList.toggle("has-meeting", !!ongoing);
+  message.className = "room-message " + (ongoing ? "ongoing" : "available");
+  message.textContent = ongoing ? "ON-GOING MEETING" : "AVAILABLE ROOM";
+  detail.textContent = ongoing ? "PLEASE KEEP SILENT" : "No meeting currently in this room";
+}
+
+function render(){
+  const list = eventsForRoom();
+  const ongoing = list.find(event => eventStatus(event) === "ongoing");
+  const upcoming = list.filter(event => eventStatus(event) === "upcoming");
+  const next = upcoming[0] || null;
+   const currentPanel = document.getElementById("currentPanel");
+   const currentTitle = document.getElementById("currentTitle");
+   const currentMeta = document.getElementById("currentMeta");
+   currentPanel.classList.toggle("has-meeting", !!ongoing);
+  if(ongoing){
+    currentTitle.textContent = ongoing.title || "Untitled meeting";
+    setRange(document.getElementById("currentRange"), ongoing);
+    setMeta(currentMeta, ongoing);
+  }else{
+    currentTitle.textContent = "Room is available";
+    setRange(document.getElementById("currentRange"), null);
+    currentMeta.textContent = next ? "Next: " + (next.title || "Untitled meeting") : "No upcoming meeting";
+  }
+  renderRoomMessage(ongoing);
+  renderRundown(scheduledEvents());
+}
+
+async function fetchSettings(){
+  try{
+    const response = await fetch("/api/dakboard/settings?ts=" + Date.now(), {cache:"no-store"});
+    if(!response.ok) return null;
+    const text = await response.text();
+    try{ settings = JSON.parse(text); }catch(e){}
+    return text;
+  }catch(e){ return null; }
+}
+
+async function loadEvents(){
+  try{
+    const response = await fetch("/api/dakboard/events?ts=" + Date.now(), {cache:"no-store"});
+    if(!response.ok) return;
+    const data = await response.json();
+    currentEvents = Array.isArray(data) ? data : [];
+    render();
+  }catch(e){}
+}
+
+async function checkSettings(){
+  const text = await fetchSettings();
+  if(text !== null && lastSettings && text !== lastSettings){
+    location.reload();
+    return;
+  }
+  if(text !== null) lastSettings = text;
+}
+
+async function boot(){
+  tick();
+  setInterval(tick, 1000);
+  const text = await fetchSettings();
+  if(text !== null) lastSettings = text;
+  roomConfig = roomQuery ? resolveRoomConfig(roomQuery) : null;
+  document.getElementById("roomName").textContent = roomConfig && roomConfig.name
+    ? roomConfig.name : "ROOM NOT SELECTED";
+  await loadEvents();
+  setInterval(loadEvents, 30000);
+  setInterval(checkSettings, 2000);
+  window.addEventListener("focus", checkSettings);
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden) checkSettings();
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
