@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIFE HOPE CENTER — Slides</title>
+<style>
+  :root{
+    --bg:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%); --text:#173b63; --muted:#315b7d;
+    --accent:#1d5687; --green:#2f8f55; --line:#2f8f55;
+    --ticker-h:clamp(40px,8vmin,72px);
+    --slide-pad:clamp(16px,3.2vmin,48px);
+  }
+  html{height:100%}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+    font-family:Segoe UI,Arial,sans-serif;width:100%;height:100vh;height:100dvh;overflow:hidden}
+  .grid{display:grid;grid-template-rows:minmax(0,1fr) var(--ticker-h);width:100%;height:100vh;height:100dvh;min-height:0}
+  .main{position:relative;overflow:hidden;background:var(--bg);min-width:0;min-height:0}
+  .slide{position:absolute;inset:0;display:flex;align-items:flex-end;
+    justify-content:flex-start;padding:var(--slide-pad);opacity:0;
+    transition:opacity 1s;background-image:var(--photo);background-size:cover;
+    background-position:center;isolation:isolate}
+  .slide.active{opacity:1}
+  .slide::before{content:"";display:none;position:absolute;inset:-6%;background-image:var(--photo);
+    background-size:cover;background-position:center;filter:blur(clamp(12px,2.2vmin,28px));
+    opacity:.65;z-index:0;pointer-events:none}
+  .slide .slide-photo{display:none}
+  .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none}
+  body.portrait .slide video{object-fit:contain}
+  .slide .caption{position:relative;z-index:2;background:rgba(23,59,99,.82);border:2px solid var(--line);padding:clamp(10px,1.8vmin,24px);
+    border-radius:12px;max-width:70%}
+  .slide .caption h2{font-size:clamp(22px,3.5vmin,40px);margin-bottom:6px;color:#fff4e8}
+  .slide .caption p{font-size:clamp(12px,2.2vmin,22px);color:#fff4e8}
+  body.portrait .slide{background-size:contain;background-position:center;background-repeat:no-repeat;background-color:var(--bg)}
+  body.portrait .slide::before{display:block;background-size:cover;background-position:center;background-repeat:no-repeat}
+  body.portrait .slide .slide-photo{display:block;position:absolute;inset:0;background-image:var(--photo);
+    background-size:contain;background-position:center;background-repeat:no-repeat;z-index:1;pointer-events:none}
+  body.portrait .slide .caption{max-width:90%}
+  .g1{background:linear-gradient(135deg,#e9a36b,#d8b58b)}
+  .g2{background:linear-gradient(135deg,#8fb69b,#b9d6b7)}
+  .g3{background:linear-gradient(135deg,#789fbd,#a9c9dc)}
+  .ticker{background:rgba(143,181,209,.9);display:flex;
+    align-items:center;overflow:hidden;border-top:2px solid var(--line);min-width:0;
+    font-size:clamp(13px,2vmin,26px);font-weight:700}
+  .ticker span{white-space:nowrap;padding-left:100%;
+    animation:scroll 30s linear infinite}
+  @keyframes scroll{to{transform:translateX(-100%)}}
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="main" id="slideshow"><!-- slides via JS --></div>
+  <div class="ticker"><span id="ticker-text">Welcome to LIFE HOPE CENTER</span></div>
+</div>
+<script>
+const query = new URLSearchParams(location.search);
+document.body.classList.toggle("portrait", query.get("orientation") === "portrait");
+let S = {ticker:"", announcements:[], photoOrder:[], photoAnnouncements:{}, slideSeconds:10};
+let lastSettings = "";
+let lastSlidesHtml = "";
+let lastPhotos = "";
+
+async function fetchSettings(){
+  try{
+    const r = await fetch("/api/dakboard/settings?ts=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) return null;
+    const txt = await r.text();
+    try{ S = Object.assign(S, JSON.parse(txt)); }catch(e){}
+    return txt;
+  }catch(e){ return null; }
+}
+
+async function fetchSlidesHtml(){
+  try{
+    const url = new URL(location.href);
+    url.searchParams.set("tv", Date.now());
+    const r = await fetch(url, {cache:"no-store"});
+    return r.ok ? await r.text() : null;
+  }catch(e){ return null; }
+}
+
+async function checkSettings(){
+  try{
+    const html = await fetchSlidesHtml();
+    if(html !== null){
+      if(lastSlidesHtml && html !== lastSlidesHtml){ location.reload(); return; }
+      lastSlidesHtml = html;
+    }
+    const txt = await fetchSettings();
+    if(txt !== null && lastSettings && txt !== lastSettings){ location.reload(); return; }
+    else if(txt !== null) lastSettings = txt;
+    const pr = await fetch("/api/dakboard/photos?ts=" + Date.now(), {cache:"no-store"});
+    if(pr.ok){
+      const pt = await pr.text();
+      if(lastPhotos && pt !== lastPhotos){ location.reload(); return; }
+      lastPhotos = pt;
+    }
+  }catch(e){}
+}
+
+async function loadSlides(){
+  const box = document.getElementById("slideshow");
+  let photos = [];
+  try{
+    const r = await fetch("/api/dakboard/photos");
+    if(r.ok) photos = await r.json();
+  }catch(e){}
+  const porder = (S.photoOrder && S.photoOrder.length) ? S.photoOrder : null;
+  if(porder){
+    const pos = {};
+    porder.forEach((n,i)=>{ pos[n]=i; });
+    photos = photos.slice().sort((a,b)=>{
+      const na = a.substring(a.lastIndexOf("/")+1), nb = b.substring(b.lastIndexOf("/")+1);
+      const pa = (na in pos) ? pos[na] : 1e9, pb = (nb in pos) ? pos[nb] : 1e9;
+      return (pa-pb) || (na < nb ? -1 : na > nb ? 1 : 0);
+    });
+  }
+  box.innerHTML = "";
+  const anns = Array.isArray(S.announcements) && S.announcements.length ? S.announcements : [];
+  const grads = ["g1","g2","g3"];
+  const photoAnns = S.photoAnnouncements || {};
+  const usedAnns = new Set();
+  const slides = photos.map(src=>{
+    const name = src.substring(src.lastIndexOf("/")+1);
+    const ai = Number(photoAnns[name]);
+    const ann = (Number.isInteger(ai) && ai>=0 && ai<anns.length) ? anns[ai] : null;
+    if(ann) usedAnns.add(ai);
+    return {img:src, title:ann?(ann.title||""):"", sub:ann?(ann.sub||""):""};
+  });
+  anns.forEach((a,i)=>{
+    if(!usedAnns.has(i)) slides.push({cls:grads[i%grads.length], title:(a.title||""), sub:(a.sub||"")});
+  });
+  slides.forEach((s,i)=>{
+    const d = document.createElement("div");
+    d.className = "slide" + (i===0 ? " active" : "");
+    if(s.img){
+      if(isVideoFile(s.img)){
+        const video = document.createElement("video");
+        video.muted = true; video.playsInline = true; video.preload = "auto";
+        video.src = s.img;
+        d.appendChild(video);
+      }else{
+        d.style.setProperty("--photo", "url('" + s.img + "')");
+        const photo = document.createElement("div");
+        photo.className = "slide-photo";
+        d.appendChild(photo);
+      }
+    } else d.classList.add(s.cls);
+    if(s.title || s.sub){
+      const cap = document.createElement("div");
+      cap.className = "caption";
+      if(s.title){
+        const h = document.createElement("h2");
+        h.textContent = s.title;
+        cap.appendChild(h);
+      }
+      if(s.sub){
+        const p = document.createElement("p");
+        p.textContent = s.sub;
+        cap.appendChild(p);
+      }
+      d.appendChild(cap);
+    }
+    box.appendChild(d);
+  });
+  let cur = 0;
+  let slideTimer = null;
+  function showSlide(i){
+    const all = box.querySelectorAll(".slide");
+    if(!all.length) return;
+    clearTimeout(slideTimer);
+    all.forEach(s => {
+      s.classList.remove("active");
+      const v = s.querySelector("video");
+      if(v){ try{ v.pause(); }catch(e){} v.onended = null; }
+    });
+    cur = ((i % all.length) + all.length) % all.length;
+    const active = all[cur];
+    active.classList.add("active");
+    let wait = (S.slideSeconds || 10) * 1000;
+    const video = active.querySelector("video");
+    if(video){
+      try{ video.currentTime = 0; }catch(e){}
+      try{ const p = video.play(); if(p && typeof p.catch === "function") p.catch(()=>{}); }catch(e){}
+      const dur = video.duration;
+      if(Number.isFinite(dur) && dur > 0) wait = Math.min(Math.max(dur * 1000, 1000), 60000);
+      video.onended = () => { clearTimeout(slideTimer); showSlide(cur + 1); };
+    }
+    slideTimer = setTimeout(() => showSlide(cur + 1), wait);
+  }
+  showSlide(0);
+}
+
+function isVideoFile(src){
+  const n = String(src || "").toLowerCase();
+  return n.endsWith(".mp4") || n.endsWith(".webm");
+}
+
+(async function boot(){
+  const txt = await fetchSettings();
+  if(txt !== null) lastSettings = txt;
+  document.getElementById("ticker-text").textContent = S.ticker || "Welcome to LIFE HOPE CENTER";
+  await loadSlides();
+  const html = await fetchSlidesHtml();
+  if(html !== null) lastSlidesHtml = html;
+  try{
+    const pr = await fetch("/api/dakboard/photos?ts=" + Date.now(), {cache:"no-store"});
+    if(pr.ok) lastPhotos = await pr.text();
+  }catch(e){}
+  setInterval(checkSettings, 2000);
+  window.addEventListener("focus", checkSettings);
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden) checkSettings();
+  });
+})();
+</script>
+</body>
+</html>

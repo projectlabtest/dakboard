@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -12,6 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -29,8 +32,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 /**
  * LIFE HOPE CENTER DAKboard - standalone Java server, no dependencies.
@@ -41,12 +47,34 @@ import java.util.stream.Stream;
  *
  * Board:        http://localhost:8080/dakboard
  * Control page: http://localhost:8080/dakboard/admin
+ * Editor page:  http://localhost:8080/dakboard/editor (limited content editing)
  */
 public class DakBoard {
 
   static Path ROOT = Paths.get("").toAbsolutePath();
-  static final long MAX_BODY = 32L * 1024 * 1024; // 32 MB (photo uploads)
+  static final long MAX_BODY = 32L * 1024 * 1024; // 32 MB (photo/video uploads)
   static final String[] PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
+  static final String[] VIDEO_EXTS = {".mp4", ".webm"};
+  static final String SESSION_COOKIE = "DAKBOARD_SESSION";
+  static final String CREDENTIAL_FILE = "admin-credential.json";
+  static final String EDITOR_CREDENTIAL_FILE = "editor-credential.json";
+  static final int MIN_PASSWORD_LENGTH = 12;
+  static final int HASH_ITERATIONS = 210000;
+  static final int HASH_BITS = 256;
+  static final long SESSION_TTL_SECONDS = 8L * 60L * 60L;
+  static final SecureRandom AUTH_RANDOM = new SecureRandom();
+  static final Map<String, Session> SESSIONS = new ConcurrentHashMap<>();
+
+  static class Session {
+    final String csrf;
+    final long expiresAt;
+    final String role;
+    Session(String tokenCsrf, String role) {
+      csrf = tokenCsrf;
+      expiresAt = System.currentTimeMillis() + SESSION_TTL_SECONDS * 1000L;
+      this.role = role == null ? "editor" : role;
+    }
+  }
 
   public static void main(String[] args) throws Exception {
     int port = 8080;
@@ -58,10 +86,30 @@ public class DakBoard {
     if (!Files.exists(settings)) {
       Files.copy(ROOT.resolve("settings.default.json"), settings);
     }
-    HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+    try {
+      String body = Files.readString(settings, StandardCharsets.UTF_8);
+      String fixed = insertJsonFieldIfMissing(body, "rooms", defaultJsonField("rooms"));
+      if (!fixed.equals(body)) {
+        Files.writeString(settings, fixed, StandardCharsets.UTF_8);
+        System.out.println("Restored missing rooms list in settings.json");
+      }
+    } catch (IOException e) {
+      System.out.println("Could not verify settings.json: " + e.getMessage());
+    }
+    String bind = envOrDefault("DAKBOARD_BIND", "0.0.0.0");
+    HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
+    server.createContext("/dakboard/login", DakBoard::handleLoginPage);
     server.createContext("/dakboard/admin", DakBoard::handleAdmin);
+    server.createContext("/dakboard/editor", DakBoard::handleEditorPage);
     server.createContext("/dakboard/room", DakBoard::handleRoom);
+    server.createContext("/dakboard/slides", DakBoard::handleSlides);
     server.createContext("/dakboard", DakBoard::handleBoard);
+    server.createContext("/api/dakboard/login", DakBoard::handleLogin);
+    server.createContext("/api/dakboard/logout", DakBoard::handleLogout);
+    server.createContext("/api/dakboard/session", DakBoard::handleSession);
+    server.createContext("/api/dakboard/password", DakBoard::handleChangePassword);
+    server.createContext("/api/dakboard/editor-password", DakBoard::handleEditorPassword);
+    server.createContext("/api/dakboard/admin/settings", DakBoard::handleAdminSettings);
     server.createContext("/api/dakboard/settings", DakBoard::handleSettings);
     server.createContext("/api/dakboard/photos/upload", DakBoard::handleUpload);
     server.createContext("/api/dakboard/photos/delete", DakBoard::handleDelete);
@@ -73,7 +121,22 @@ public class DakBoard {
     server.setExecutor(Executors.newFixedThreadPool(8));
     server.start();
     System.out.println("DAKboard running at http://localhost:" + port + "/dakboard");
-    System.out.println("Control page at http://localhost:" + port + "/dakboard/admin");
+    System.out.println("Admin login at http://localhost:" + port + "/dakboard/login");
+    if (!authConfigured()) {
+      System.out.println("Set DAKBOARD_ADMIN_PASSWORD before using the admin login.");
+    } else if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) {
+      System.out.println("Admin password comes from " + CREDENTIAL_FILE
+          + " (set from the admin page). Delete that file to fall back to the startup password.");
+    }
+    System.out.println("Editor page at http://localhost:" + port + "/dakboard/editor"
+        + " (username \"" + editorUsername() + "\")");
+    if (!editorConfigured()) {
+      System.out.println("Editor login is disabled. Set DAKBOARD_EDITOR_PASSWORD or set an editor"
+          + " password from the admin page (Editor access).");
+    } else if (Files.isRegularFile(ROOT.resolve(EDITOR_CREDENTIAL_FILE))) {
+      System.out.println("Editor password comes from " + EDITOR_CREDENTIAL_FILE
+          + " (set from the admin page).");
+    }
   }
 
   // ---------------- routes ----------------
@@ -96,6 +159,11 @@ public class DakBoard {
     sendFile(ex, ROOT.resolve("room.html"), "text/html; charset=utf-8");
   }
 
+  static void handleSlides(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    sendFile(ex, ROOT.resolve("slides.html"), "text/html; charset=utf-8");
+  }
+
   static boolean hasQueryParam(String query, String name) {
     if (query == null) return false;
     for (String part : query.split("&")) {
@@ -108,16 +176,246 @@ public class DakBoard {
 
   static void handleAdmin(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    Session session = session(ex);
+    if (session == null) {
+      redirect(ex, "/dakboard/login?next=/dakboard/admin");
+      return;
+    }
+    if (!"admin".equals(session.role)) {
+      redirect(ex, "/dakboard/editor");
+      return;
+    }
     sendFile(ex, ROOT.resolve("admin.html"), "text/html; charset=utf-8");
+  }
+
+  static void handleEditorPage(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (session(ex) == null) {
+      redirect(ex, "/dakboard/login?next=/dakboard/editor");
+      return;
+    }
+    sendFile(ex, ROOT.resolve("editor.html"), "text/html; charset=utf-8");
+  }
+
+  static void handleLoginPage(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    sendFile(ex, ROOT.resolve("login.html"), "text/html; charset=utf-8");
+  }
+
+  static void handleLogin(HttpExchange ex) throws IOException {
+    if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String body = readBody(ex, 16 * 1024);
+    if (body == null) { send(ex, 413, "{\"error\":\"request too large\"}", "application/json"); return; }
+    Map<String, String> form = parseForm(body);
+    if (!authConfigured() && !editorConfigured()) {
+      send(ex, 503, "{\"error\":\"No login is configured on this server yet.\"}", "application/json");
+      return;
+    }
+    String username = form.getOrDefault("username", "");
+    String password = form.getOrDefault("password", "");
+    String role = null;
+    if (credentialsMatch(username, password)) {
+      role = "admin";
+    } else if (editorCredentialsMatch(username, password)) {
+      role = "editor";
+    } else {
+      send(ex, 401, "{\"error\":\"Invalid username or password.\"}", "application/json");
+      return;
+    }
+    cleanupSessions();
+    String token = randomToken();
+    String csrf = randomToken();
+    SESSIONS.put(token, new Session(csrf, role));
+    setSessionCookie(ex, token, false);
+    String next = "editor".equals(role) ? "/dakboard/editor" : safeNext(form.get("next"));
+    send(ex, 200, "{\"ok\":true,\"role\":" + quoted(role) + ",\"next\":" + quoted(next) + "}", "application/json");
+  }
+
+  static void handleLogout(HttpExchange ex) throws IOException {
+    if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    Session session = session(ex);
+    if (session == null) {
+      setSessionCookie(ex, "", true);
+      send(ex, 401, "{\"error\":\"Not authenticated\"}", "application/json");
+      return;
+    }
+    if (!csrfMatches(ex, session)) {
+      send(ex, 403, "{\"error\":\"Invalid CSRF token\"}", "application/json");
+      return;
+    }
+    String token = cookieValue(ex, SESSION_COOKIE);
+    if (token != null) SESSIONS.remove(token);
+    setSessionCookie(ex, "", true);
+    send(ex, 200, "{\"ok\":true}", "application/json");
+  }
+
+  static void handleSession(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    Session session = session(ex);
+    if (session == null) {
+      send(ex, 401, "{\"error\":\"authentication required\"}", "application/json");
+      return;
+    }
+    String username = "admin".equals(session.role) ? adminUsername() : editorUsername();
+    StringBuilder out = new StringBuilder("{\"authenticated\":true,\"username\":")
+        .append(quoted(username))
+        .append(",\"role\":").append(quoted(session.role))
+        .append(",\"csrfToken\":").append(quoted(session.csrf));
+    if ("admin".equals(session.role)) {
+      out.append(",\"editorUsername\":").append(quoted(editorUsername()))
+          .append(",\"editorEnabled\":").append(editorConfigured());
+    }
+    out.append("}");
+    send(ex, 200, out.toString(), "application/json");
+  }
+
+  static void handleChangePassword(HttpExchange ex) throws IOException {
+    if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!requireAdmin(ex)) return;
+    Session session = session(ex);
+    if (!csrfMatches(ex, session)) {
+      send(ex, 403, "{\"error\":\"Invalid CSRF token\"}", "application/json");
+      return;
+    }
+    String body = readBody(ex, 8 * 1024);
+    if (body == null) { send(ex, 413, "{\"error\":\"request too large\"}", "application/json"); return; }
+    String current = jsonField(body, "currentPassword");
+    String next = jsonField(body, "newPassword");
+    if (current == null || next == null) {
+      send(ex, 400, "{\"error\":\"missing password field\"}", "application/json");
+      return;
+    }
+    if (next.length() < MIN_PASSWORD_LENGTH) {
+      send(ex, 400, "{\"error\":\"New password must be at least "
+          + MIN_PASSWORD_LENGTH + " characters.\"}", "application/json");
+      return;
+    }
+    if (next.equals(current)) {
+      send(ex, 400, "{\"error\":\"New password must be different from the current one.\"}",
+          "application/json");
+      return;
+    }
+    if (!credentialsMatch(adminUsername(), current)) {
+      send(ex, 400, "{\"error\":\"Current password is incorrect.\"}", "application/json");
+      return;
+    }
+    try {
+      savePassword(next);
+    } catch (Exception e) {
+      send(ex, 500, "{\"error\":\"Could not save the new password.\"}", "application/json");
+      return;
+    }
+    String keep = cookieValue(ex, SESSION_COOKIE);
+    String finalKeep = keep;
+    SESSIONS.entrySet().removeIf(entry -> !entry.getKey().equals(finalKeep));
+    cleanupSessions();
+    send(ex, 200, "{\"ok\":true,\"message\":\"Password updated. Other sessions were signed out.\"}",
+        "application/json");
+  }
+
+  static void handleAdminSettings(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!requireAdmin(ex)) return;
+    ex.getResponseHeaders().set("Cache-Control", "no-store");
+    sendFile(ex, ROOT.resolve("settings.json"), "application/json; charset=utf-8");
+  }
+
+  static void handleEditorPassword(HttpExchange ex) throws IOException {
+    if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!requireAdmin(ex)) return;
+    Session session = session(ex);
+    if (!csrfMatches(ex, session)) {
+      send(ex, 403, "{\"error\":\"Invalid CSRF token\"}", "application/json");
+      return;
+    }
+    String body = readBody(ex, 8 * 1024);
+    if (body == null) { send(ex, 413, "{\"error\":\"request too large\"}", "application/json"); return; }
+    String rawName = jsonField(body, "newUsername");
+    String next = jsonField(body, "newPassword");
+    String name = rawName == null || rawName.trim().isEmpty() ? editorUsername() : rawName.trim();
+    if (!validLoginName(name)) {
+      send(ex, 400, "{\"error\":\"Username must be 3-32 characters: letters, numbers, dot, underscore, or hyphen.\"}",
+          "application/json");
+      return;
+    }
+    if (name.equalsIgnoreCase(adminUsername())) {
+      send(ex, 400, "{\"error\":\"Username must be different from the admin username.\"}",
+          "application/json");
+      return;
+    }
+    if (next == null && rawName != null && !rawName.trim().isEmpty() && !hasEditorHash()) {
+      send(ex, 400, "{\"error\":\"No editor password is set yet — type one (12+ characters).\"}",
+          "application/json");
+      return;
+    }
+    if (next != null && !next.isEmpty() && next.length() < MIN_PASSWORD_LENGTH) {
+      send(ex, 400, "{\"error\":\"Editor password must be at least "
+          + MIN_PASSWORD_LENGTH + " characters.\"}", "application/json");
+      return;
+    }
+    Path file = ROOT.resolve(EDITOR_CREDENTIAL_FILE);
+    if (next != null && next.isEmpty() && rawName == null) {
+      try {
+        Files.deleteIfExists(file);
+      } catch (IOException e) {
+        send(ex, 500, "{\"error\":\"Could not remove the editor account.\"}", "application/json");
+        return;
+      }
+      SESSIONS.entrySet().removeIf(entry -> "editor".equals(entry.getValue().role));
+      send(ex, 200, "{\"ok\":true,\"editorUsername\":" + quoted(editorUsername())
+          + ",\"editorEnabled\":" + editorConfigured()
+          + ",\"message\":\"Editor account removed. Editor login now follows DAKBOARD_EDITOR_PASSWORD, if set.\"}",
+          "application/json");
+      return;
+    }
+    try {
+      if (next != null && !next.isEmpty()) {
+        saveEditorCredential(name, next);
+      } else if (hasEditorHash()) {
+        String stored = Files.readString(file, StandardCharsets.UTF_8);
+        String withName = putJsonStringField(stored, "username", name);
+        Path tmp = ROOT.resolve(EDITOR_CREDENTIAL_FILE + ".tmp");
+        Files.write(tmp, withName.getBytes(StandardCharsets.UTF_8));
+        try {
+          Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+          Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+        }
+      } else {
+        send(ex, 400, "{\"error\":\"No editor password is set yet — type one (12+ characters).\"}",
+            "application/json");
+        return;
+      }
+    } catch (Exception e) {
+      send(ex, 500, "{\"error\":\"Could not save the editor account.\"}", "application/json");
+      return;
+    }
+    SESSIONS.entrySet().removeIf(entry -> "editor".equals(entry.getValue().role));
+    send(ex, 200, "{\"ok\":true,\"editorUsername\":" + quoted(editorUsername())
+        + ",\"editorEnabled\":" + editorConfigured()
+        + ",\"message\":\"Editor account updated. Editors must log in again.\"}",
+        "application/json");
   }
 
   static void handleSettings(HttpExchange ex) throws IOException {
     Path file = ROOT.resolve("settings.json");
     if (method(ex, "GET")) {
-      sendFile(ex, file, "application/json; charset=utf-8");
+      try {
+        String body = Files.readString(file, StandardCharsets.UTF_8);
+        ex.getResponseHeaders().set("Cache-Control", "no-store");
+        send(ex, 200, publicSettingsJson(body), "application/json; charset=utf-8");
+      } catch (IOException e) {
+        send(ex, 500, "{\"error\":\"settings unavailable\"}", "application/json");
+      }
       return;
     }
     if (method(ex, "POST")) {
+      if (!requireApiAuth(ex)) return;
+      Session session = session(ex);
+      if (!csrfMatches(ex, session)) {
+        send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
+        return;
+      }
       String body = readBody(ex, 512 * 1024);
       if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
       String t = body.trim();
@@ -126,11 +424,24 @@ public class DakBoard {
         return;
       }
       String query = ex.getRequestURI().getRawQuery();
-      boolean clearOutlookIcs = query != null && query.contains("clearOutlookIcs=true");
+      boolean isAdmin = session != null && "admin".equals(session.role);
+      boolean clearOutlookIcs = isAdmin && query != null && query.contains("clearOutlookIcs=true");
       String submittedUrl = jsonField(body, "outlookIcsUrl");
       if(!clearOutlookIcs && (submittedUrl == null || submittedUrl.isEmpty())){
         String currentUrl = settingsField("outlookIcsUrl");
         if(!currentUrl.isEmpty()) body = putJsonStringField(body, "outlookIcsUrl", currentUrl);
+      }
+      String current = readSettingsText();
+      body = insertJsonFieldIfMissing(body, "rooms",
+          firstPresent(jsonRawField(current, "rooms"), defaultJsonField("rooms")));
+      body = insertJsonFieldIfMissing(body, "photoOrder", jsonRawField(current, "photoOrder"));
+      body = insertJsonFieldIfMissing(body, "photoAnnouncements",
+          jsonRawField(current, "photoAnnouncements"));
+      if(!isAdmin){
+        body = insertJsonFieldIfMissing(body, "slideSeconds", jsonRawField(current, "slideSeconds"));
+        body = insertJsonFieldIfMissing(body, "weatherLat", jsonRawField(current, "weatherLat"));
+        body = insertJsonFieldIfMissing(body, "weatherLon", jsonRawField(current, "weatherLon"));
+        body = insertJsonFieldIfMissing(body, "orientation", jsonRawField(current, "orientation"));
       }
       Path tmp = ROOT.resolve("settings.json.tmp");
       Files.write(tmp, body.getBytes(StandardCharsets.UTF_8));
@@ -170,6 +481,11 @@ public class DakBoard {
 
   static void handleUpload(HttpExchange ex) throws IOException {
     if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!requireApiAuth(ex)) return;
+    if (!csrfMatches(ex, session(ex))) {
+      send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
+      return;
+    }
     String body = readBody(ex, MAX_BODY);
     if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
     String filename = sanitize(jsonField(body, "filename"));
@@ -179,10 +495,10 @@ public class DakBoard {
       return;
     }
     if (!hasPhotoExt(filename)) {
-      send(ex, 400, "{\"error\":\"photo must be JPG, PNG, WEBP or GIF\"}", "application/json");
+      send(ex, 400, "{\"error\":\"file must be JPG, PNG, WEBP, GIF, MP4 or WEBM\"}", "application/json");
       return;
     }
-    // strip data URL prefix if present ("data:image/png;base64,....")
+    // strip data URL prefix if present ("data:image/png;base64,...." or "data:video/mp4;base64,....")
     int comma = data.indexOf(',');
     if (data.startsWith("data:") && comma > 0) {
       data = data.substring(comma + 1);
@@ -200,6 +516,11 @@ public class DakBoard {
 
   static void handleDelete(HttpExchange ex) throws IOException {
     if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!requireApiAuth(ex)) return;
+    if (!csrfMatches(ex, session(ex))) {
+      send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
+      return;
+    }
     String body = readBody(ex, 64 * 1024);
     if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
     String filename = sanitize(jsonField(body, "filename"));
@@ -257,13 +578,29 @@ public class DakBoard {
   }
 
   static String settingsField(String key) {
+    String v = jsonField(readSettingsText(), key);
+    return v == null ? "" : v.trim();
+  }
+
+  static String readSettingsText() {
     try {
-      String body = Files.readString(ROOT.resolve("settings.json"), StandardCharsets.UTF_8);
-      String v = jsonField(body, key);
-      return v == null ? "" : v.trim();
+      return Files.readString(ROOT.resolve("settings.json"), StandardCharsets.UTF_8);
     } catch (IOException e) {
       return "";
     }
+  }
+
+  static String defaultJsonField(String key) {
+    try {
+      return jsonRawField(Files.readString(ROOT.resolve("settings.default.json"),
+          StandardCharsets.UTF_8), key);
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
+  static String firstPresent(String a, String b) {
+    return a == null || a.isBlank() ? b : a;
   }
 
   static synchronized String cachedIcs(String url) {
@@ -584,6 +921,392 @@ public class DakBoard {
 
   // ---------------- helpers ----------------
 
+  static String envOrDefault(String key, String fallback) {
+    String value = System.getenv(key);
+    return value == null || value.trim().isEmpty() ? fallback : value.trim();
+  }
+
+  static String adminUsername() {
+    return envOrDefault("DAKBOARD_ADMIN_USERNAME", "admin");
+  }
+
+  static String editorUsername() {
+    try {
+      String stored = Files.readString(ROOT.resolve(EDITOR_CREDENTIAL_FILE), StandardCharsets.UTF_8);
+      String name = jsonField(stored, "username");
+      if (name != null && !name.trim().isEmpty()) return name.trim();
+    } catch (IOException ignored) {
+    }
+    return envOrDefault("DAKBOARD_EDITOR_USERNAME", "editor");
+  }
+
+  static boolean authConfigured() {
+    if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) return true;
+    String password = System.getenv("DAKBOARD_ADMIN_PASSWORD");
+    return password != null && password.length() >= MIN_PASSWORD_LENGTH;
+  }
+
+  static boolean editorConfigured() {
+    try {
+      String stored = Files.readString(ROOT.resolve(EDITOR_CREDENTIAL_FILE), StandardCharsets.UTF_8);
+      if (jsonField(stored, "hash") != null) return true;
+    } catch (IOException ignored) {
+    }
+    String password = System.getenv("DAKBOARD_EDITOR_PASSWORD");
+    return password != null && password.length() >= MIN_PASSWORD_LENGTH;
+  }
+
+  static boolean credentialsMatch(String username, String password) {
+    byte[] expectedUser = adminUsername().getBytes(StandardCharsets.UTF_8);
+    byte[] actualUser = (username == null ? "" : username).getBytes(StandardCharsets.UTF_8);
+    if (!MessageDigest.isEqual(expectedUser, actualUser)) return false;
+    return passwordMatches(password == null ? "" : password);
+  }
+
+  static boolean editorCredentialsMatch(String username, String password) {
+    byte[] expectedUser = editorUsername().getBytes(StandardCharsets.UTF_8);
+    byte[] actualUser = (username == null ? "" : username).getBytes(StandardCharsets.UTF_8);
+    if (!MessageDigest.isEqual(expectedUser, actualUser)) return false;
+    return credentialMatches(ROOT.resolve(EDITOR_CREDENTIAL_FILE),
+        "DAKBOARD_EDITOR_PASSWORD", password == null ? "" : password);
+  }
+
+  static boolean passwordMatches(String password) {
+    return credentialMatches(ROOT.resolve(CREDENTIAL_FILE),
+        "DAKBOARD_ADMIN_PASSWORD", password);
+  }
+
+  static boolean credentialMatches(Path file, String envVar, String password) {
+    if (Files.isRegularFile(file)) {
+      try {
+        String stored = Files.readString(file, StandardCharsets.UTF_8);
+        String salt = jsonField(stored, "salt");
+        String hash = jsonField(stored, "hash");
+        String iterations = jsonField(stored, "iterations");
+        if (salt != null && hash != null && iterations != null) {
+          byte[] expected = Base64.getDecoder().decode(hash);
+          byte[] actual = derive(password, Base64.getDecoder().decode(salt),
+              Integer.parseInt(iterations.trim()));
+          return MessageDigest.isEqual(expected, actual);
+        }
+      } catch (Exception ignored) {
+      }
+    }
+    String envPassword = System.getenv(envVar);
+    return MessageDigest.isEqual((envPassword == null ? "" : envPassword).getBytes(StandardCharsets.UTF_8),
+        password.getBytes(StandardCharsets.UTF_8));
+  }
+
+  static byte[] derive(String password, byte[] salt, int iterations) throws Exception {
+    PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, HASH_BITS);
+    try {
+      return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+    } finally {
+      spec.clearPassword();
+    }
+  }
+
+  static boolean savePassword(String password) throws Exception {
+    return saveCredential(CREDENTIAL_FILE, password);
+  }
+
+  static boolean validLoginName(String name) {
+    return name != null && name.matches("[A-Za-z0-9._-]{3,32}");
+  }
+
+  static boolean hasEditorHash() {
+    try {
+      return jsonField(Files.readString(ROOT.resolve(EDITOR_CREDENTIAL_FILE),
+          StandardCharsets.UTF_8), "hash") != null;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  static boolean saveEditorCredential(String username, String password) throws Exception {
+    StringBuilder json = new StringBuilder("{\"username\":")
+        .append(quoted(username));
+    if (password != null && !password.isEmpty()) {
+      byte[] salt = new byte[16];
+      AUTH_RANDOM.nextBytes(salt);
+      byte[] hash = derive(password, salt, HASH_ITERATIONS);
+      json.append(",\"algo\":\"PBKDF2WithHmacSHA256\",\"iterations\":").append(HASH_ITERATIONS)
+          .append(",\"salt\":").append(quoted(Base64.getEncoder().encodeToString(salt)))
+          .append(",\"hash\":").append(quoted(Base64.getEncoder().encodeToString(hash)));
+    }
+    json.append(",\"updated\":")
+        .append(quoted(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
+        .append("}");
+    Path target = ROOT.resolve(EDITOR_CREDENTIAL_FILE);
+    Path tmp = ROOT.resolve(EDITOR_CREDENTIAL_FILE + ".tmp");
+    Files.write(tmp, json.toString().getBytes(StandardCharsets.UTF_8));
+    try {
+      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    } catch (IOException e) {
+      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+    return true;
+  }
+
+  static boolean saveCredential(String fileName, String password) throws Exception {
+    byte[] salt = new byte[16];
+    AUTH_RANDOM.nextBytes(salt);
+    byte[] hash = derive(password, salt, HASH_ITERATIONS);
+    String json = "{\"algo\":\"PBKDF2WithHmacSHA256\",\"iterations\":" + HASH_ITERATIONS
+        + ",\"salt\":" + quoted(Base64.getEncoder().encodeToString(salt))
+        + ",\"hash\":" + quoted(Base64.getEncoder().encodeToString(hash))
+        + ",\"updated\":" + quoted(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+        + "}";
+    Path target = ROOT.resolve(fileName);
+    Path tmp = ROOT.resolve(fileName + ".tmp");
+    Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
+    try {
+      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    } catch (IOException e) {
+      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+    return true;
+  }
+
+  static String randomToken() {
+    byte[] bytes = new byte[32];
+    AUTH_RANDOM.nextBytes(bytes);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+  }
+
+  static String cookieValue(HttpExchange ex, String name) {
+    List<String> values = ex.getRequestHeaders().get("Cookie");
+    if (values == null) return null;
+    for (String value : values) {
+      for (String part : value.split(";")) {
+        String item = part.trim();
+        int eq = item.indexOf('=');
+        if (eq > 0 && name.equals(item.substring(0, eq))) {
+          return item.substring(eq + 1);
+        }
+      }
+    }
+    return null;
+  }
+
+  static Session session(HttpExchange ex) {
+    String token = cookieValue(ex, SESSION_COOKIE);
+    if (token == null) return null;
+    Session session = SESSIONS.get(token);
+    if (session == null) return null;
+    if (session.expiresAt <= System.currentTimeMillis()) {
+      SESSIONS.remove(token, session);
+      return null;
+    }
+    return session;
+  }
+
+  static boolean requireApiAuth(HttpExchange ex) throws IOException {
+    if (session(ex) != null) return true;
+    send(ex, 401, "{\"error\":\"authentication required\"}", "application/json");
+    return false;
+  }
+
+  static boolean requireAdmin(HttpExchange ex) throws IOException {
+    Session session = session(ex);
+    if (session == null) {
+      send(ex, 401, "{\"error\":\"authentication required\"}", "application/json");
+      return false;
+    }
+    if (!"admin".equals(session.role)) {
+      send(ex, 403, "{\"error\":\"admin access required\"}", "application/json");
+      return false;
+    }
+    return true;
+  }
+
+  static boolean csrfMatches(HttpExchange ex, Session session) {
+    if (session == null) return false;
+    String supplied = ex.getRequestHeaders().getFirst("X-CSRF-Token");
+    return supplied != null && MessageDigest.isEqual(
+        session.csrf.getBytes(StandardCharsets.UTF_8),
+        supplied.getBytes(StandardCharsets.UTF_8));
+  }
+
+  static void cleanupSessions() {
+    long now = System.currentTimeMillis();
+    SESSIONS.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
+  }
+
+  static boolean secureRequest(HttpExchange ex) {
+    return "https".equalsIgnoreCase(ex.getRequestHeaders().getFirst("X-Forwarded-Proto"))
+        || "https".equalsIgnoreCase(ex.getRequestHeaders().getFirst("X-Forwarded-Scheme"));
+  }
+
+  static void setSessionCookie(HttpExchange ex, String token, boolean clear) {
+    StringBuilder cookie = new StringBuilder(SESSION_COOKIE).append("=");
+    if (!clear) cookie.append(token);
+    cookie.append("; Path=/; Max-Age=").append(clear ? 0 : SESSION_TTL_SECONDS);
+    cookie.append("; HttpOnly; SameSite=Strict");
+    if (secureRequest(ex)) cookie.append("; Secure");
+    ex.getResponseHeaders().add("Set-Cookie", cookie.toString());
+  }
+
+  static String safeNext(String value) {
+    if (value == null || value.contains("\r") || value.contains("\n")
+        || !value.startsWith("/dakboard") || value.startsWith("//")) {
+      return "/dakboard/admin";
+    }
+    return value;
+  }
+
+  static Map<String, String> parseForm(String body) {
+    Map<String, String> form = new HashMap<>();
+    for (String part : body.split("&")) {
+      String[] pair = part.split("=", 2);
+      try {
+        String key = URLDecoder.decode(pair[0], StandardCharsets.UTF_8);
+        String value = pair.length > 1
+            ? URLDecoder.decode(pair[1], StandardCharsets.UTF_8) : "";
+        form.put(key, value);
+      } catch (IllegalArgumentException ignored) {
+      }
+    }
+    return form;
+  }
+
+  static String publicSettingsJson(String body) {
+    return removeJsonField(body, "outlookIcsUrl");
+  }
+
+  /** Returns the raw text of a top-level JSON value, or null when absent. */
+  static String jsonRawField(String json, String key) {
+    if (json == null || json.isEmpty()) return null;
+    String needle = "\"" + key + "\"";
+    int depth = 0;
+    boolean quoted = false;
+    boolean escaped = false;
+    for (int i = 0; i < json.length(); i++) {
+      char c = json.charAt(i);
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c == '\\') escaped = true;
+        else if (c == '"') quoted = false;
+        continue;
+      }
+      if (c == '"') {
+        if (depth == 1 && json.startsWith(needle, i)) {
+          int colon = i + needle.length();
+          while (colon < json.length() && Character.isWhitespace(json.charAt(colon))) colon++;
+          if (colon >= json.length() || json.charAt(colon) != ':') continue;
+          return scanJsonValue(json, colon + 1);
+        }
+        quoted = true;
+        continue;
+      }
+      if (c == '{' || c == '[') depth++;
+      else if (c == '}' || c == ']') depth--;
+    }
+    return null;
+  }
+
+  static String scanJsonValue(String json, int start) {
+    int i = start;
+    while (i < json.length() && Character.isWhitespace(json.charAt(i))) i++;
+    if (i >= json.length()) return null;
+    char c = json.charAt(i);
+    if (c == '"') {
+      i++;
+      boolean escaped = false;
+      while (i < json.length()) {
+        char ch = json.charAt(i++);
+        if (escaped) escaped = false;
+        else if (ch == '\\') escaped = true;
+        else if (ch == '"') return json.substring(start, i);
+      }
+      return null;
+    }
+    if (c == '{' || c == '[') {
+      int depth = 0;
+      boolean q = false;
+      boolean esc = false;
+      while (i < json.length()) {
+        char ch = json.charAt(i++);
+        if (q) {
+          if (esc) esc = false;
+          else if (ch == '\\') esc = true;
+          else if (ch == '"') q = false;
+          continue;
+        }
+        if (ch == '"') q = true;
+        else if (ch == '{' || ch == '[') depth++;
+        else if (ch == '}' || ch == ']') {
+          depth--;
+          if (depth == 0) return json.substring(start, i);
+        }
+      }
+      return null;
+    }
+    int end = i;
+    while (end < json.length() && ",}] \t\r\n".indexOf(json.charAt(end)) < 0) end++;
+    return json.substring(start, end);
+  }
+
+  /** Adds a top-level field only when it is missing, so stale clients cannot drop data. */
+  static String insertJsonFieldIfMissing(String json, String key, String raw) {
+    if (raw == null || raw.isBlank()) return json;
+    if (jsonRawField(json, key) != null) return json;
+    int end = json.lastIndexOf('}');
+    if (end < 0) return json;
+    String prefix = json.substring(0, end).trim();
+    String separator = prefix.endsWith("{") || prefix.endsWith(",") ? "" : ",";
+    return prefix + separator + "\"" + key + "\":" + raw.trim() + json.substring(end);
+  }
+
+  static String removeJsonField(String json, String key) {
+    String needle = "\"" + key + "\"";
+    int depth = 0;
+    boolean quoted = false;
+    boolean escaped = false;
+    for (int i = 0; i < json.length(); i++) {
+      char c = json.charAt(i);
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c == '\\') escaped = true;
+        else if (c == '"') quoted = false;
+        continue;
+      }
+      if (c == '"') {
+        if (depth == 1 && json.startsWith(needle, i)) {
+          int colon = i + needle.length();
+          while (colon < json.length() && Character.isWhitespace(json.charAt(colon))) colon++;
+          if (colon >= json.length() || json.charAt(colon) != ':') continue;
+          colon++;
+          while (colon < json.length() && Character.isWhitespace(json.charAt(colon))) colon++;
+          if (colon >= json.length() || json.charAt(colon) != '"') continue;
+          int end = colon + 1;
+          boolean valueEscaped = false;
+          while (end < json.length()) {
+            char valueChar = json.charAt(end++);
+            if (valueEscaped) valueEscaped = false;
+            else if (valueChar == '\\') valueEscaped = true;
+            else if (valueChar == '"') break;
+          }
+          int start = i;
+          int removeEnd = end;
+          while (removeEnd < json.length() && Character.isWhitespace(json.charAt(removeEnd))) removeEnd++;
+          if (removeEnd < json.length() && json.charAt(removeEnd) == ',') {
+            removeEnd++;
+          } else {
+            while (start > 0 && Character.isWhitespace(json.charAt(start - 1))) start--;
+            if (start > 0 && json.charAt(start - 1) == ',') start--;
+          }
+          return json.substring(0, start) + json.substring(removeEnd);
+        }
+        quoted = true;
+        continue;
+      }
+      if (c == '{' || c == '[') depth++;
+      else if (c == '}' || c == ']') depth--;
+    }
+    return json;
+  }
+
   static boolean method(HttpExchange ex, String m) {
     return m.equalsIgnoreCase(ex.getRequestMethod());
   }
@@ -656,6 +1379,14 @@ public class DakBoard {
     for (String ext : PHOTO_EXTS) {
       if (lower.endsWith(ext)) return true;
     }
+    return hasVideoExt(name);
+  }
+
+  static boolean hasVideoExt(String name) {
+    String lower = name == null ? "" : name.toLowerCase();
+    for (String ext : VIDEO_EXTS) {
+      if (lower.endsWith(ext)) return true;
+    }
     return false;
   }
 
@@ -676,6 +1407,8 @@ public class DakBoard {
     if (lower.endsWith(".png")) return "image/png";
     if (lower.endsWith(".gif")) return "image/gif";
     if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".mp4")) return "video/mp4";
+    if (lower.endsWith(".webm")) return "video/webm";
     return "image/jpeg";
   }
 
@@ -711,8 +1444,8 @@ public class DakBoard {
   }
 
   /**
-   * Extracts a top-level string field from a flat JSON object.
-   * Handles basic backslash escapes. Returns null if not found.
+   * Extracts a top-level field from a flat JSON object. String values are unescaped,
+   * other values (numbers, booleans) are returned as raw text. Null when not found.
    */
   static String jsonField(String json, String key) {
     String needle = "\"" + key + "\"";
@@ -720,10 +1453,18 @@ public class DakBoard {
     if (i < 0) return null;
     int colon = json.indexOf(':', i + needle.length());
     if (colon < 0) return null;
-    int q1 = json.indexOf('"', colon + 1);
-    if (q1 < 0) return null;
+    int valueStart = colon + 1;
+    while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) {
+      valueStart++;
+    }
+    if (valueStart >= json.length()) return null;
+    if (json.charAt(valueStart) != '"') {
+      int end = valueStart;
+      while (end < json.length() && ",}] \t\r\n".indexOf(json.charAt(end)) < 0) end++;
+      return end > valueStart ? json.substring(valueStart, end) : null;
+    }
     StringBuilder sb = new StringBuilder();
-    for (int j = q1 + 1; j < json.length(); j++) {
+    for (int j = valueStart + 1; j < json.length(); j++) {
       char c = json.charAt(j);
       if (c == '\\' && j + 1 < json.length()) {
         char e = json.charAt(++j);

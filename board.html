@@ -42,6 +42,8 @@
     background-size:cover;background-position:center;filter:blur(clamp(12px,2.2vmin,28px));
     opacity:.65;z-index:0;pointer-events:none}
   .slide .slide-photo{display:none}
+  .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none}
+  body.portrait .slide video{object-fit:contain}
   .slide .caption{position:relative;z-index:2;background:rgba(23,59,99,.82);border:2px solid var(--line);padding:clamp(10px,1.8vmin,24px);
     border-radius:12px;max-width:70%}
   .slide .caption h2{font-size:clamp(22px,3.5vmin,40px);margin-bottom:6px;color:#fff4e8}
@@ -161,7 +163,7 @@ const CONFIG = {
     {text:"Trust in the Lord with all your heart.", ref:"Proverbs 3:5"},
   ],
   slideSeconds: 10,
-  weatherLat: 16.4023, weatherLon: 120.5960,
+  weatherLat: 14.2306, weatherLon: 120.9750,
    orientation: "landscape",
    rooms: [],
    outlookIcsUrl: "",
@@ -356,10 +358,17 @@ async function loadSlides(){
     const d=document.createElement("div");
     d.className="slide"+(i===0?" active":"");
     if(s.img){
-      d.style.setProperty("--photo", "url('"+s.img+"')");
-      const photo=document.createElement("div");
-      photo.className="slide-photo";
-      d.appendChild(photo);
+      if(isVideoFile(s.img)){
+        const video=document.createElement("video");
+        video.muted=true; video.playsInline=true; video.preload="auto";
+        video.src=s.img;
+        d.appendChild(video);
+      }else{
+        d.style.setProperty("--photo", "url('"+s.img+"')");
+        const photo=document.createElement("div");
+        photo.className="slide-photo";
+        d.appendChild(photo);
+      }
     } else d.classList.add(s.cls);
     if(s.title || s.sub){
       const cap=document.createElement("div");
@@ -379,13 +388,36 @@ async function loadSlides(){
     box.appendChild(d);
   });
   let cur=0;
-  setInterval(()=>{
+  let slideTimer=null;
+  function showSlide(i){
     const all=box.querySelectorAll(".slide");
-    if(all.length<2) return;
-    all[cur].classList.remove("active");
-    cur=(cur+1)%all.length;
-    all[cur].classList.add("active");
-  },(S.slideSeconds||10)*1000);
+    if(!all.length) return;
+    clearTimeout(slideTimer);
+    all.forEach(s=>{
+      s.classList.remove("active");
+      const v=s.querySelector("video");
+      if(v){ try{ v.pause(); }catch(e){} v.onended=null; }
+    });
+    cur=((i%all.length)+all.length)%all.length;
+    const active=all[cur];
+    active.classList.add("active");
+    let wait=(S.slideSeconds||10)*1000;
+    const video=active.querySelector("video");
+    if(video){
+      try{ video.currentTime=0; }catch(e){}
+      try{ const p=video.play(); if(p&&typeof p.catch==="function") p.catch(()=>{}); }catch(e){}
+      const dur=video.duration;
+      if(Number.isFinite(dur)&&dur>0) wait=Math.min(Math.max(dur*1000,1000),60000);
+      video.onended=()=>{ clearTimeout(slideTimer); showSlide(cur+1); };
+    }
+    slideTimer=setTimeout(()=>showSlide(cur+1),wait);
+  }
+  showSlide(0);
+}
+
+function isVideoFile(src){
+  const n=String(src||"").toLowerCase();
+  return n.endsWith(".mp4")||n.endsWith(".webm");
 }
 
 function renderEvents(){
