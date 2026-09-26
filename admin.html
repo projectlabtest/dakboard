@@ -54,10 +54,11 @@
      <div id="status"></div>
      <div class="db-actions">
        <span id="sessionUser"></span>
-       <span class="db-group">
-         <button type="button" class="db-btn sec" onclick="togglePasswordPanel()">CHANGE PASSWORD</button>
-         <button type="button" class="db-btn sec" onclick="logout()">LOG OUT</button>
-       </span>
+        <span class="db-group">
+          <button type="button" class="db-btn sec" onclick="togglePasswordPanel()">CHANGE PASSWORD</button>
+          <button type="button" class="db-btn sec" onclick="toggleEditorPanel()">EDITOR ACCESS</button>
+          <button type="button" class="db-btn sec" onclick="logout()">LOG OUT</button>
+        </span>
      </div>
   </div>
 
@@ -83,6 +84,24 @@
       <span class="db-group">
         <button type="button" class="db-btn" onclick="changePassword()">SAVE NEW PASSWORD</button>
         <button type="button" class="db-btn sec" onclick="togglePasswordPanel()">CANCEL</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="db-card" id="editorPanel" style="display:none">
+    <h2>Editor access</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Ikaw ang magse-set ng editor username at password, at puwede mong i-reset ang password dito anumang oras. I-share ang link, username, at password sa staff para makapag-edit sila ng TV content. Hindi nila makikita ang calendar link at hindi nila mapapalitan ang admin password.</p>
+    <label>EDITOR PAGE LINK (share this)</label>
+    <input type="text" id="editorLink" readonly onclick="this.select()">
+    <label>EDITOR USERNAME (3-32 characters: letters, numbers, dot, underscore, hyphen)</label>
+    <input type="text" id="editorUsername" autocomplete="off">
+    <label>SET EDITOR PASSWORD (12+ characters — blank = keep the current one)</label>
+    <input type="password" id="editorPassword" autocomplete="new-password">
+    <div class="db-actions">
+      <span id="editorStatus" style="font-size:13px;font-weight:700;color:#64748b"></span>
+      <span class="db-group">
+        <button type="button" class="db-btn" onclick="saveEditorAccount()">SAVE EDITOR ACCOUNT</button>
+        <button type="button" class="db-btn sec" onclick="disableEditorPassword()">DISABLE</button>
       </span>
     </div>
   </div>
@@ -123,6 +142,16 @@
     <label>OUTLOOK CALENDAR ICS URL (optional)</label>
     <input type="text" id="outlookIcsUrl" value="" placeholder="https://outlook.live.com/.../calendar.ics">
     <p style="font-size:12px;color:#777">Sa Outlook: Calendar → Share → Publish calendar → kopyahin ang ICS link at i-paste dito. Blank kung ayaw.</p>
+  </div>
+
+  <div class="db-card">
+    <button type="button" class="db-btn sec" id="roomOutputsToggle" onclick="toggleRoomsPanel()">OUTPUTS</button>
+    <p style="font-size:12px;color:#777;margin:8px 0 0">Show or hide all output URLs (board, slides, room).</p>
+  </div>
+
+  <div class="db-card" id="roomsPanel" style="display:none">
+    <h2>Outputs</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Click a URL, then press Ctrl+C to copy it. Buksan ang URL sa browser ng TV.</p>
     <label>BOARD ORIENTATION</label>
     <select id="orientation" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
       <option value="landscape">Landscape — wide TV / monitor</option>
@@ -136,37 +165,15 @@
     <input type="text" id="slidesLandscapeUrl" readonly onclick="this.select()">
     <label>SLIDES OUTPUT URL — PORTRAIT (slides + running text only)</label>
     <input type="text" id="slidesPortraitUrl" readonly onclick="this.select()">
-    <p style="font-size:12px;color:#777;margin:6px 0 0">Click a URL above, then press Ctrl+C to copy it.</p>
-  </div>
-
-  <div class="db-card">
-    <button type="button" class="db-btn sec" id="roomOutputsToggle" onclick="toggleRoomsPanel()">ROOM OUTPUTS</button>
-    <p style="font-size:12px;color:#777;margin:8px 0 0">Show or hide the room output URLs.</p>
-  </div>
-
-  <div class="db-card" id="roomsPanel" style="display:none">
-    <h2>Room outputs</h2>
-    <p style="font-size:12px;color:#777;margin:0 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
+    <label>ROOM OUTPUT — SELECT ROOM</label>
+    <select id="roomOutputSelect" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff" onchange="updateRoomOutputUrls()"></select>
+    <label>ROOM OUTPUT URL — LANDSCAPE (meeting + announcements)</label>
+    <input type="text" id="roomLandscapeUrl" readonly onclick="this.select()">
+    <label>ROOM OUTPUT URL — PORTRAIT (meeting + announcements)</label>
+    <input type="text" id="roomPortraitUrl" readonly onclick="this.select()">
+    <p style="font-size:12px;color:#777;margin:14px 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
     <div id="rooms"></div>
     <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
-  </div>
-
-  <div class="db-card">
-    <h2>Editor access</h2>
-    <p style="font-size:12px;color:#777;margin:0 0 10px">Ikaw ang magse-set ng editor username at password, at puwede mong i-reset ang password dito anumang oras. I-share ang link, username, at password sa staff para makapag-edit sila ng TV content. Hindi nila makikita ang calendar link at hindi nila mapapalitan ang admin password.</p>
-    <label>EDITOR PAGE LINK (share this)</label>
-    <input type="text" id="editorLink" readonly onclick="this.select()">
-    <label>EDITOR USERNAME (3-32 characters: letters, numbers, dot, underscore, hyphen)</label>
-    <input type="text" id="editorUsername" autocomplete="off">
-    <label>SET EDITOR PASSWORD (12+ characters — blank = keep the current one)</label>
-    <input type="password" id="editorPassword" autocomplete="new-password">
-    <div class="db-actions">
-      <span id="editorStatus" style="font-size:13px;font-weight:700;color:#64748b"></span>
-      <span class="db-group">
-        <button type="button" class="db-btn" onclick="saveEditorAccount()">SAVE EDITOR ACCOUNT</button>
-        <button type="button" class="db-btn sec" onclick="disableEditorPassword()">DISABLE</button>
-      </span>
-    </div>
   </div>
 
   <div class="db-card">
@@ -203,6 +210,46 @@ document.getElementById("landscapeOutputUrl").value = location.origin + "/dakboa
 document.getElementById("portraitOutputUrl").value = location.origin + "/dakboard?orientation=portrait";
 document.getElementById("slidesLandscapeUrl").value = location.origin + "/dakboard/slides?orientation=landscape";
 document.getElementById("slidesPortraitUrl").value = location.origin + "/dakboard/slides?orientation=portrait";
+document.getElementById("roomLandscapeUrl").value = location.origin + "/dakboard/room?orientation=landscape";
+document.getElementById("roomPortraitUrl").value = location.origin + "/dakboard/room?orientation=portrait";
+
+function roomOutputNames(){
+  const names = [];
+  document.querySelectorAll("#rooms .db-room").forEach(row => {
+    const input = row.querySelector(".db-room-fields input");
+    const name = input ? input.value.trim() : "";
+    if(name) names.push(name);
+  });
+  return names.length ? names : DEFAULT_ROOMS.map(r => r.name);
+}
+
+function updateRoomOutputUrls(){
+  const sel = document.getElementById("roomOutputSelect");
+  const name = sel && sel.value ? sel.value : "";
+  const suffix = name ? "&room=" + encodeURIComponent(name) : "";
+  document.getElementById("roomLandscapeUrl").value = location.origin + "/dakboard/room?orientation=landscape" + suffix;
+  document.getElementById("roomPortraitUrl").value = location.origin + "/dakboard/room?orientation=portrait" + suffix;
+}
+
+function refreshRoomOutputSelect(){
+  const sel = document.getElementById("roomOutputSelect");
+  const prev = sel.value;
+  const prevCount = sel.options.length;
+  const prevIdx = sel.selectedIndex;
+  const names = roomOutputNames();
+  sel.innerHTML = "";
+  names.forEach(n => {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    sel.appendChild(o);
+  });
+  if(sel.options.length === prevCount && prevIdx >= 0 && prevIdx < sel.options.length){
+    sel.selectedIndex = prevIdx;
+  }else if(names.includes(prev)){
+    sel.value = prev;
+  }
+  updateRoomOutputUrls();
+}
 
 function status(msg, cls){
   const el = document.getElementById("status");
@@ -281,6 +328,11 @@ function toggleRoomsPanel(){
     const first = panel.querySelector("input");
     if(first) first.focus();
   }
+}
+
+function toggleEditorPanel(){
+  const panel = document.getElementById("editorPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
 async function changePassword(){
@@ -575,17 +627,18 @@ function addRoom(room){
   urls.append(landscapeField, portraitField);
   const remove = document.createElement("button");
   remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
-  remove.onclick = () => row.remove();
+  remove.onclick = () => { row.remove(); refreshRoomOutputSelect(); };
   const updateUrls = () => {
     const name = nameInput.value.trim();
     const suffix = name ? "&room=" + encodeURIComponent(name) : "";
     landscapeInput.value = location.origin + "/dakboard/room?orientation=landscape" + suffix;
     portraitInput.value = location.origin + "/dakboard/room?orientation=portrait" + suffix;
   };
-  nameInput.addEventListener("input", updateUrls);
+  nameInput.addEventListener("input", () => { updateUrls(); refreshRoomOutputSelect(); });
   row.append(fields, urls, remove);
   document.getElementById("rooms").appendChild(row);
   updateUrls();
+  refreshRoomOutputSelect();
 }
 
 function renderRooms(){
@@ -647,6 +700,7 @@ async function load(){
   document.getElementById("outlookIcsUrl").value = S.outlookIcsUrl || "";
   document.getElementById("orientation").value = S.orientation || "landscape";
   renderRooms();
+  refreshRoomOutputSelect();
   loadPhotos();
 }
 
