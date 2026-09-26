@@ -523,8 +523,14 @@ async function loadWeather(){
     const t=Math.round(j.current.temperature_2m);
     const code=j.current.weather_code;
     const desc={0:"Clear ☀️",1:"Mostly clear ⛅",2:"Partly cloudy ⛅",3:"Overcast ☁️",
-      45:"Foggy 🌫️",48:"Foggy 🌫️",51:"Drizzle 🌦️",61:"Rain 🌧️",71:"Snow 🌨️",95:"Thunderstorm ⛈️"}[code]||"Weather code "+code;
-    document.getElementById("weather").textContent="🌡️ "+t+"°C — "+desc;
+      45:"Foggy 🌫️",48:"Foggy 🌫️",51:"Drizzle 🌦️",53:"Drizzle 🌦️",55:"Drizzle 🌦️",
+      56:"Freezing drizzle 🧊",57:"Freezing drizzle 🧊",
+      61:"Rain 🌧️",63:"Rain 🌧️",65:"Heavy rain 🌧️",66:"Freezing rain 🧊",67:"Freezing rain 🧊",
+      71:"Snow 🌨️",73:"Snow 🌨️",75:"Heavy snow 🌨️",77:"Snow grains 🌨️",
+      80:"Rain showers 🌦️",81:"Rain showers 🌦️",82:"Heavy showers 🌧️",
+      85:"Snow showers 🌨️",86:"Snow showers 🌨️",
+      95:"Thunderstorm ⛈️",96:"Thunderstorm ⛈️",99:"Thunderstorm ⛈️"}[code]||"Weather code "+code;
+    document.getElementById("weather").textContent="🌡️ Silang "+t+"°C — "+desc;
   }catch(e){
     document.getElementById("weather").textContent="🌡️ Weather offline — check internet";
   }
@@ -554,7 +560,7 @@ async function loadWeather(){
     const pr = await fetch("/api/dakboard/photos");
     if(pr.ok) lastPhotos = await pr.text();
   }catch(e){}
-  loadWeather();
+  loadWeather(); setInterval(loadWeather, 10*60*1000);
   loadEvents(); setInterval(loadEvents, 30*1000);
   setInterval(checkSettings,2000);
   window.addEventListener("focus", checkSettings);
