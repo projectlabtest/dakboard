@@ -10,7 +10,7 @@
   .db-card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:16px}
   .db-card h2{margin:0 0 10px;font-size:16px}
   .db-card label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;color:#444}
-  .db-card input[type=text],.db-card input[type=number],.db-card textarea{
+  .db-card input[type=text],.db-card input[type=number],.db-card input[type=password],.db-card textarea{
     width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;box-sizing:border-box}
   .db-row{display:flex;gap:8px;margin-bottom:8px}
   .db-row input{flex:1}
@@ -18,10 +18,14 @@
     padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
   .db-btn.sec{background:#64748b}
   .db-btn.danger{background:#dc2626}
+  .db-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+  .db-group{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  #sessionUser{color:#64748b;font-size:12px;font-weight:700}
   .db-thumb .db-btn{padding:3px 8px;font-size:12px}
   .db-thumbs{display:flex;flex-wrap:wrap;gap:10px}
   .db-thumb{border:1px solid #ddd;border-radius:8px;padding:6px;width:180px;text-align:center}
   .db-thumb img{width:100%;height:90px;object-fit:cover;border-radius:6px}
+  .db-thumb video{width:100%;height:90px;object-fit:cover;border-radius:6px;background:#000}
   .db-thumb div{font-size:11px;word-break:break-all;margin:4px 0}
   .db-thumb label{display:block;font-size:10px;font-weight:700;margin:6px 0 3px;color:#555}
   .db-photo-ann{width:100%;padding:6px;border:1px solid #bbb;border-radius:6px;font-size:12px;box-sizing:border-box}
@@ -42,8 +46,41 @@
 <div class="db-wrap">
   <div class="db-card">
     <h2>DAKBOARD CONTROL</h2>
-    <p style="font-size:13px;color:#555;margin:0">Everything shown on the TV display is changed here. After Save, all TV outputs refresh automatically within about 2 seconds.</p>
-    <div id="status"></div>
+     <p style="font-size:13px;color:#555;margin:0">Everything shown on the TV display is changed here. After Save, all TV outputs refresh automatically within about 2 seconds.</p>
+     <div id="status"></div>
+     <div class="db-actions">
+       <span id="sessionUser"></span>
+       <span class="db-group">
+         <button type="button" class="db-btn sec" onclick="togglePasswordPanel()">CHANGE PASSWORD</button>
+         <button type="button" class="db-btn sec" onclick="logout()">LOG OUT</button>
+       </span>
+     </div>
+  </div>
+
+  <div class="db-card" id="pwPanel" style="display:none">
+    <h2>Change password</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Hindi na ginagamit ang password na inilagay sa <code>run-dakboard.bat</code> kapag may naitang password na. Kung na-lock out ka, burahin ang <code>admin-credential.json</code> sa DAKboard folder at i-restart para magamit muli ang startup password.</p>
+    <div class="db-row">
+      <div style="flex:1">
+        <label>CURRENT PASSWORD</label>
+        <input type="password" id="currentPassword" autocomplete="current-password">
+      </div>
+      <div style="flex:1">
+        <label>NEW PASSWORD (12+ characters)</label>
+        <input type="password" id="newPassword" autocomplete="new-password">
+      </div>
+      <div style="flex:1">
+        <label>CONFIRM NEW PASSWORD</label>
+        <input type="password" id="confirmPassword" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="db-actions">
+      <span id="pwStatus" style="font-size:13px;font-weight:700;color:#64748b"></span>
+      <span class="db-group">
+        <button type="button" class="db-btn" onclick="changePassword()">SAVE NEW PASSWORD</button>
+        <button type="button" class="db-btn sec" onclick="togglePasswordPanel()">CANCEL</button>
+      </span>
+    </div>
   </div>
 
   <div class="db-card">
@@ -60,7 +97,13 @@
 
   <div class="db-card">
     <h2>Bible verses (rotating)</h2>
-    <label>ONE PER LINE — format: Text | Reference</label>
+    <label>SEARCH THE BIBLE (King James Version) — mag-type ng reference tulad ng John 3:16 o keyword tulad ng peace</label>
+    <div class="db-row">
+      <input type="text" id="verseSearch" placeholder="John 3:16  o  peace" onkeydown="if(event.key==='Enter'){event.preventDefault();searchVerses();}">
+      <button type="button" class="db-btn" onclick="searchVerses()">Search</button>
+    </div>
+    <div id="verseResults" style="display:flex;flex-direction:column;gap:8px;margin:8px 0"></div>
+    <label>VERSE LIST — one per line, format: Text | Reference (puwede ring i-type nang manu-mano)</label>
     <textarea id="verses" rows="6"></textarea>
   </div>
 
@@ -69,10 +112,10 @@
     <label>SLIDE DURATION (seconds, 3–120)</label>
     <input type="number" id="slideSeconds" min="3" max="120" value="10">
     <label>WEATHER LATITUDE</label>
-    <input type="text" id="weatherLat" value="16.4023">
+    <input type="text" id="weatherLat" value="14.2306">
     <label>WEATHER LONGITUDE</label>
-    <input type="text" id="weatherLon" value="120.5960">
-    <p style="font-size:12px;color:#777">Baguio default: 16.4023, 120.5960</p>
+    <input type="text" id="weatherLon" value="120.9750">
+    <p style="font-size:12px;color:#777">Silang default: 14.2306, 120.9750</p>
     <label>OUTLOOK CALENDAR ICS URL (optional)</label>
     <input type="text" id="outlookIcsUrl" value="" placeholder="https://outlook.live.com/.../calendar.ics">
     <p style="font-size:12px;color:#777">Sa Outlook: Calendar → Share → Publish calendar → kopyahin ang ICS link at i-paste dito. Blank kung ayaw.</p>
@@ -85,14 +128,41 @@
     <input type="text" id="landscapeOutputUrl" readonly onclick="this.select()">
     <label>PORTRAIT OUTPUT URL</label>
     <input type="text" id="portraitOutputUrl" readonly onclick="this.select()">
+    <label>SLIDES OUTPUT URL — LANDSCAPE (slides + running text only)</label>
+    <input type="text" id="slidesLandscapeUrl" readonly onclick="this.select()">
+    <label>SLIDES OUTPUT URL — PORTRAIT (slides + running text only)</label>
+    <input type="text" id="slidesPortraitUrl" readonly onclick="this.select()">
     <p style="font-size:12px;color:#777;margin:6px 0 0">Click a URL above, then press Ctrl+C to copy it.</p>
   </div>
 
   <div class="db-card">
+    <button type="button" class="db-btn sec" id="roomOutputsToggle" onclick="toggleRoomsPanel()">ROOM OUTPUTS</button>
+    <p style="font-size:12px;color:#777;margin:8px 0 0">Show or hide the room output URLs.</p>
+  </div>
+
+  <div class="db-card" id="roomsPanel" style="display:none">
     <h2>Room outputs</h2>
     <p style="font-size:12px;color:#777;margin:0 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
     <div id="rooms"></div>
     <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
+  </div>
+
+  <div class="db-card">
+    <h2>Editor access</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Ikaw ang magse-set ng editor username at password, at puwede mong i-reset ang password dito anumang oras. I-share ang link, username, at password sa staff para makapag-edit sila ng TV content. Hindi nila makikita ang calendar link at hindi nila mapapalitan ang admin password.</p>
+    <label>EDITOR PAGE LINK (share this)</label>
+    <input type="text" id="editorLink" readonly onclick="this.select()">
+    <label>EDITOR USERNAME (3-32 characters: letters, numbers, dot, underscore, hyphen)</label>
+    <input type="text" id="editorUsername" autocomplete="off">
+    <label>SET EDITOR PASSWORD (12+ characters — blank = keep the current one)</label>
+    <input type="password" id="editorPassword" autocomplete="new-password">
+    <div class="db-actions">
+      <span id="editorStatus" style="font-size:13px;font-weight:700;color:#64748b"></span>
+      <span class="db-group">
+        <button type="button" class="db-btn" onclick="saveEditorAccount()">SAVE EDITOR ACCOUNT</button>
+        <button type="button" class="db-btn sec" onclick="disableEditorPassword()">DISABLE</button>
+      </span>
+    </div>
   </div>
 
   <div class="db-card">
@@ -102,16 +172,18 @@
   <div class="db-card">
     <h2>Photos (slideshow background)</h2>
     <div class="db-row">
-      <input type="file" id="photoFile" accept=".jpg,.jpeg,.png,.webp,.gif" multiple>
+      <input type="file" id="photoFile" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm" multiple>
       <button type="button" class="db-btn" onclick="upload()">Upload</button>
     </div>
-    <p style="font-size:12px;color:#777;margin:0 0 8px">Puwede pumili ng hanggang 10 photos nang sabay-sabay. Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
+    <p style="font-size:12px;color:#777;margin:0 0 8px">Photos o maikling highlight video (MP4/WebM, hanggang ~24MB bawat file, hanggang 10 sabay-sabay). Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
     <div class="db-thumbs" id="thumbs"></div>
   </div>
 </div>
 
 <script>
 let S = null;
+let CSRF_TOKEN = "";
+let SESSION = null;
 const DEFAULT_ROOMS = [
   {name:"Convention Hall", location:"Convention Hall"},
   {name:"Conference Room 1", location:"Conference Room 1"},
@@ -125,10 +197,320 @@ document.getElementById("outlookIcsUrl").addEventListener("input", () => {
 });
 document.getElementById("landscapeOutputUrl").value = location.origin + "/dakboard?orientation=landscape";
 document.getElementById("portraitOutputUrl").value = location.origin + "/dakboard?orientation=portrait";
+document.getElementById("slidesLandscapeUrl").value = location.origin + "/dakboard/slides?orientation=landscape";
+document.getElementById("slidesPortraitUrl").value = location.origin + "/dakboard/slides?orientation=portrait";
 
 function status(msg, cls){
   const el = document.getElementById("status");
   el.textContent = msg; el.className = cls || "";
+}
+
+function redirectToLogin(){
+  location.href="/dakboard/login?next=" + encodeURIComponent("/dakboard/admin");
+}
+
+function checkAuthResponse(response){
+  if(response.status === 401 || response.status === 403){
+    redirectToLogin();
+    return true;
+  }
+  return false;
+}
+
+async function loadSession(){
+  try{
+    const response = await fetch("/api/dakboard/session", {credentials:"same-origin", cache:"no-store"});
+    if(!response.ok){ redirectToLogin(); return false; }
+    SESSION = await response.json();
+    CSRF_TOKEN = SESSION.csrfToken || "";
+    document.getElementById("sessionUser").textContent = SESSION.username || "admin";
+    refreshEditorAccess();
+    return true;
+  }catch(error){
+    redirectToLogin();
+    return false;
+  }
+}
+
+async function logout(){
+  try{
+    await fetch("/api/dakboard/logout", {
+      method:"POST", headers:{"X-CSRF-Token":CSRF_TOKEN}, credentials:"same-origin"
+    });
+  }catch(error){}
+  location.href="/dakboard/login";
+}
+
+function authHeaders(){
+  return {"Content-Type":"application/json", "X-CSRF-Token":CSRF_TOKEN};
+}
+
+function pwStatus(msg, cls){
+  const el = document.getElementById("pwStatus");
+  el.textContent = msg;
+  el.style.color = cls === "ok" ? "#059669" : (cls === "err" ? "#dc2626" : "#64748b");
+}
+
+function clearPasswordFields(){
+  ["currentPassword","newPassword","confirmPassword"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+}
+
+function togglePasswordPanel(){
+  const panel = document.getElementById("pwPanel");
+  const opening = panel.style.display === "none";
+  panel.style.display = opening ? "block" : "none";
+  if(opening){
+    pwStatus("", "");
+    document.getElementById("currentPassword").focus();
+  }else{
+    clearPasswordFields();
+  }
+}
+
+function toggleRoomsPanel(){
+  const panel = document.getElementById("roomsPanel");
+  const opening = panel.style.display === "none";
+  panel.style.display = opening ? "block" : "none";
+  if(opening){
+    const first = panel.querySelector("input");
+    if(first) first.focus();
+  }
+}
+
+async function changePassword(){
+  const currentField = document.getElementById("currentPassword");
+  const nextField = document.getElementById("newPassword");
+  const confirmField = document.getElementById("confirmPassword");
+  const current = currentField.value;
+  const next = nextField.value;
+  if(!current || !next){
+    pwStatus("Fill in the current and new password.", "err");
+    return;
+  }
+  if(next.length < 12){
+    pwStatus("New password must be at least 12 characters.", "err");
+    return;
+  }
+  if(next !== confirmField.value){
+    pwStatus("New password and confirmation do not match.", "err");
+    return;
+  }
+  pwStatus("Saving...", "");
+  try{
+    const response = await fetch("/api/dakboard/password", {
+      method:"POST", headers:authHeaders(), credentials:"same-origin",
+      body:JSON.stringify({currentPassword:current, newPassword:next})
+    });
+    if(checkAuthResponse(response)) return;
+    const out = await response.json().catch(()=>({}));
+    if(response.ok){
+      togglePasswordPanel();
+      status(out.message || "Password updated.", "ok");
+    }else{
+      pwStatus(out.error || "Could not change the password.", "err");
+    }
+  }catch(error){
+    pwStatus("Cannot reach server.", "err");
+  }
+}
+
+function editorStatus(msg, cls){
+  const el = document.getElementById("editorStatus");
+  el.textContent = msg;
+  el.style.color = cls === "ok" ? "#059669" : (cls === "err" ? "#dc2626" : "#64748b");
+}
+
+function refreshEditorAccess(){
+  document.getElementById("editorLink").value = location.origin + "/dakboard/editor";
+  if(SESSION){
+    document.getElementById("editorUsername").value = SESSION.editorUsername || "editor";
+    editorStatus(SESSION.editorEnabled ? "Editor login is ON." : "Editor login is OFF — mag-set ng password para buksan.",
+      SESSION.editorEnabled ? "ok" : "");
+  }
+}
+
+async function saveEditorAccount(){
+  const nameField = document.getElementById("editorUsername");
+  const pwField = document.getElementById("editorPassword");
+  const name = nameField.value.trim();
+  const next = pwField.value;
+  if(!name){ editorStatus("Type an editor username first.", "err"); return; }
+  editorStatus("Saving...", "");
+  try{
+    const response = await fetch("/api/dakboard/editor-password", {
+      method:"POST", headers:authHeaders(), credentials:"same-origin",
+      body:JSON.stringify({newUsername:name, newPassword:next})
+    });
+    if(checkAuthResponse(response)) return;
+    const out = await response.json().catch(()=>({}));
+    if(response.ok){
+      pwField.value = "";
+      if(SESSION){
+        if(out.editorUsername) SESSION.editorUsername = out.editorUsername;
+        if(typeof out.editorEnabled === "boolean") SESSION.editorEnabled = out.editorEnabled;
+      }
+      if(out.editorUsername) nameField.value = out.editorUsername;
+      editorStatus(out.message || "Editor account updated.", "ok");
+    }else{
+      editorStatus(out.error || "Could not save the editor account.", "err");
+    }
+  }catch(error){ editorStatus("Cannot reach server.", "err"); }
+}
+
+async function disableEditorPassword(){
+  editorStatus("Removing...", "");
+  try{
+    const response = await fetch("/api/dakboard/editor-password", {
+      method:"POST", headers:authHeaders(), credentials:"same-origin",
+      body:JSON.stringify({newPassword:""})
+    });
+    if(checkAuthResponse(response)) return;
+    const out = await response.json().catch(()=>({}));
+    if(response.ok){
+      document.getElementById("editorPassword").value = "";
+      if(SESSION){
+        if(out.editorUsername) SESSION.editorUsername = out.editorUsername;
+        if(typeof out.editorEnabled === "boolean") SESSION.editorEnabled = out.editorEnabled;
+      }
+      if(out.editorUsername) document.getElementById("editorUsername").value = out.editorUsername;
+      editorStatus(out.message || "Editor account removed.", "ok");
+    }else{
+      editorStatus(out.error || "Could not remove the editor account.", "err");
+    }
+  }catch(error){ editorStatus("Cannot reach server.", "err"); }
+}
+
+const BIBLE_BOOKS = ["","Genesis","Exodus","Leviticus","Numbers","Deuteronomy",
+"Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles",
+"2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalms","Proverbs","Ecclesiastes",
+"Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea",
+"Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai",
+"Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians",
+"2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians",
+"2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James",
+"1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
+
+function cleanBibleHtml(html){
+  const noNotes = String(html || "")
+    .replace(/<sup[\s>][\s\S]*?<\/sup>/gi, "")
+    .replace(/<\/?mark>/gi, "")
+    .replace(/<S>[\s\S]*?<\/S>/gi, "");
+  const tmp = document.createElement("div");
+  tmp.innerHTML = noNotes;
+  return (tmp.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function verseLineExists(ref){
+  const want = String(ref || "").trim().toLowerCase();
+  if(!want) return false;
+  return document.getElementById("verses").value.split("\n").some(line => {
+    const i = line.indexOf("|");
+    if(i < 0) return false;
+    return line.slice(i + 1).trim().toLowerCase() === want;
+  });
+}
+
+function addVerseToBox(text, ref){
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  const label = String(ref || "").trim();
+  if(!clean || !label) return;
+  if(verseLineExists(label)){
+    status("Nasa listahan na ang " + label + ".", "");
+    return;
+  }
+  const box = document.getElementById("verses");
+  box.value = (box.value.trim() ? box.value.trim() + "\n" : "") + clean + " | " + label;
+  box.scrollTop = box.scrollHeight;
+  status("Added " + label + " — pindutin ang SAVE para lumabas ito sa TV.", "ok");
+}
+
+function renderVerseResult(ref, text){
+  const results = document.getElementById("verseResults");
+  const d = document.createElement("div");
+  d.style.cssText = "border:1px solid #ddd;border-radius:8px;padding:8px 10px;background:#f8fafc";
+  const head = document.createElement("div");
+  head.style.cssText = "font-size:13px;font-weight:800;color:#1d5687;margin-bottom:4px";
+  head.textContent = ref;
+  const body = document.createElement("div");
+  body.style.cssText = "font-size:13px;color:#333;margin-bottom:8px";
+  body.textContent = text;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "db-btn";
+  add.textContent = "ADD TO LIST";
+  add.onclick = () => addVerseToBox(text, ref);
+  d.append(head, body, add);
+  results.appendChild(d);
+}
+
+function verseResultsMessage(msg, isError){
+  const results = document.getElementById("verseResults");
+  results.innerHTML = "";
+  results.style.cssText = "font-size:13px;margin:8px 0;color:" + (isError ? "#dc2626" : "#64748b");
+  results.textContent = msg;
+}
+
+async function searchVerses(){
+  const query = document.getElementById("verseSearch").value.trim();
+  const results = document.getElementById("verseResults");
+  results.innerHTML = "";
+  results.style.cssText = "display:flex;flex-direction:column;gap:8px;margin:8px 0";
+  if(!query) return;
+  const wait = document.createElement("div");
+  wait.style.cssText = "font-size:13px;color:#64748b";
+  wait.textContent = "Searching...";
+  results.appendChild(wait);
+  try{
+    const refResponse = await fetch("https://bible-api.com/" + encodeURIComponent(query) + "?translation=kjv");
+    if(refResponse.ok){
+      const data = await refResponse.json();
+      const items = Array.isArray(data.verses) ? data.verses : [];
+      results.innerHTML = "";
+      if(items.length === 1){
+        renderVerseResult(data.reference || query, String(items[0].text || "").replace(/\s+/g, " ").trim());
+        return;
+      }
+      if(items.length > 1){
+        items.slice(0, 20).forEach(item => {
+          renderVerseResult(item.book_name + " " + item.chapter + ":" + item.verse,
+            String(item.text || "").replace(/\s+/g, " ").trim());
+        });
+        if(items.length > 20){
+          const more = document.createElement("div");
+          more.style.cssText = "font-size:12px;color:#64748b";
+          more.textContent = "Showing 20 of " + items.length + " verses — pumili ng mas maikling range tulad ng John 3:16-17.";
+          results.appendChild(more);
+        }
+        return;
+      }
+    }
+  }catch(error){}
+  try{
+    const searchResponse = await fetch("https://bolls.life/v2/find/KJV?search=" +
+      encodeURIComponent(query) + "&match_whole=true&limit=12");
+    if(!searchResponse.ok) throw new Error("search failed");
+    const data = await searchResponse.json();
+    const items = Array.isArray(data.results) ? data.results : [];
+    results.innerHTML = "";
+    if(!items.length){
+      verseResultsMessage("Walang nahanap. Subukan ang ibang salita o reference tulad ng John 3:16.", false);
+      return;
+    }
+    items.forEach(item => {
+      const book = BIBLE_BOOKS[item.book] || ("Book " + item.book);
+      renderVerseResult(book + " " + item.chapter + ":" + item.verse, cleanBibleHtml(item.text));
+    });
+    if(data.total > items.length){
+      const more = document.createElement("div");
+      more.style.cssText = "font-size:12px;color:#64748b";
+      more.textContent = "Showing " + items.length + " of " + data.total + " matches — mas tiyak na salita ang ilagay para umikli.";
+      results.appendChild(more);
+    }
+  }catch(error){
+    verseResultsMessage("Cannot reach the Bible search — check internet connection, o i-type nang manu-mano sa box sa ibaba.", true);
+  }
 }
 
 function addAnn(title, sub){
@@ -236,7 +618,9 @@ function applySavedSettings(out){
 
 async function load(){
   try{
-    const r = await fetch("/api/dakboard/settings");
+    const r = await fetch("/api/dakboard/admin/settings", {credentials:"same-origin", cache:"no-store"});
+    if(checkAuthResponse(r)) return;
+    if(!r.ok){ status("Cannot load settings.", "err"); return; }
     S = await r.json();
     if(!Array.isArray(S.photoOrder)) S.photoOrder = [];
     if(!Array.isArray(S.rooms)){
@@ -279,11 +663,19 @@ async function loadPhotos(){
   order.forEach((name, idx) => {
     const d = document.createElement("div");
     d.className = "db-thumb";
-    const img = document.createElement("img");
-    img.src = "/photos/" + name; img.alt = "";
+    if(isVideoFile(name)){
+      const video = document.createElement("video");
+      video.muted = true; video.preload = "metadata";
+      video.src = "/photos/" + name;
+      d.appendChild(video);
+    }else{
+      const img = document.createElement("img");
+      img.src = "/photos/" + name; img.alt = "";
+      d.appendChild(img);
+    }
     const cap = document.createElement("div");
     cap.textContent = (idx + 1) + ". " + name;
-    d.appendChild(img); d.appendChild(cap);
+    d.appendChild(cap);
     const annLabel = document.createElement("label");
     annLabel.textContent = "SLIDE DISPLAY";
     const annSelect = document.createElement("select");
@@ -315,10 +707,11 @@ async function loadPhotos(){
     del.className = "db-btn danger"; del.textContent = "Delete";
     del.onclick = async () => {
       if(!confirm("Delete " + name + "?")) return;
-      const r = await fetch("/api/dakboard/photos/delete", {
-        method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({filename: name})});
-      if(r.ok){ status("Photo deleted.", "ok"); loadPhotos(); }
+       const r = await fetch("/api/dakboard/photos/delete", {
+         method: "POST", headers: authHeaders(),
+         body: JSON.stringify({filename: name})});
+       if(checkAuthResponse(r)) return;
+       if(r.ok){ status("Photo deleted.", "ok"); loadPhotos(); }
       else status("Delete failed.", "err");
     };
     row.append(up, dn, del);
@@ -354,6 +747,14 @@ function collectSettings(){
     if(i >= 0) verses.push({text: line.slice(0, i).trim(), ref: line.slice(i + 1).trim()});
     else verses.push({text: line, ref: ""});
   });
+  const existing = new Set(currentPhotos.map(p => p.substring(p.lastIndexOf("/") + 1)));
+  const order = currentPhotos.length ? orderedNames(currentPhotos) : (S.photoOrder || []).slice();
+  const announcements = Object.assign({}, S.photoAnnouncements || {});
+  Object.keys(announcements).forEach(name => {
+    const isListed = (S.photoOrder || []).indexOf(name) >= 0;
+    const keep = existing.size ? existing.has(name) : isListed;
+    if(!keep) delete announcements[name];
+  });
   const out = {
     ticker: document.getElementById("ticker").value.trim(),
     announcements: anns.length ? anns : (S.announcements || []),
@@ -367,8 +768,8 @@ function collectSettings(){
       : ((S && S.outlookIcsUrl) || ""),
     orientation: document.getElementById("orientation").value,
     rooms: collectRooms(),
-    photoOrder: (S.photoOrder || []).slice(),
-    photoAnnouncements: Object.assign({}, S.photoAnnouncements || {})
+    photoOrder: order,
+    photoAnnouncements: announcements
   };
   if(!isFinite(out.weatherLat)) out.weatherLat = S.weatherLat;
   if(!isFinite(out.weatherLon)) out.weatherLon = S.weatherLon;
@@ -381,10 +782,11 @@ async function postSettings(out){
     const endpoint = clearIcs
       ? "/api/dakboard/settings?clearOutlookIcs=true"
       : "/api/dakboard/settings";
-    const r = await fetch(endpoint, {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(out)});
-    return r.ok;
+     const r = await fetch(endpoint, {
+       method: "POST", headers: authHeaders(),
+       body: JSON.stringify(out)});
+     if(checkAuthResponse(r)) return false;
+     return r.ok;
   }catch(e){ return false; }
 }
 
@@ -395,6 +797,11 @@ async function save(){
 }
 
 /* photo order: filenames in display order */
+function isVideoFile(name){
+  const n = String(name || "").toLowerCase();
+  return n.endsWith(".mp4") || n.endsWith(".webm");
+}
+
 function orderedNames(srcs){
   const names = (srcs || []).map(src => src.substring(src.lastIndexOf("/") + 1));
   let order = (S.photoOrder && S.photoOrder.length) ? S.photoOrder.slice() : [];
@@ -417,6 +824,8 @@ function upload(){
   const files = Array.from(document.getElementById("photoFile").files || []);
   if(!files.length){ status("Choose photos first.", "err"); return; }
   if(files.length > 10){ status("Maximum 10 photos at a time.", "err"); return; }
+  const tooBig = files.find(f => f.size > 24 * 1024 * 1024);
+  if(tooBig){ status(tooBig.name + " is too large — keep each file under ~24MB.", "err"); return; }
   let i = 0, ok = 0;
   status("Uploading 1/" + files.length + "...", "");
   async function next(){
@@ -440,10 +849,11 @@ function upload(){
     const rd = new FileReader();
     rd.onload = async () => {
       try{
-        const r = await fetch("/api/dakboard/photos/upload", {
-          method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({filename: f.name, data: rd.result})});
-        if(r.ok) ok++;
+         const r = await fetch("/api/dakboard/photos/upload", {
+           method: "POST", headers: authHeaders(),
+           body: JSON.stringify({filename: f.name, data: rd.result})});
+         if(checkAuthResponse(r)) return;
+         if(r.ok) ok++;
         else{
           const j = await r.json().catch(() => ({}));
           status("Failed on " + f.name + ": " + (j.error || r.status), "err");
@@ -457,7 +867,7 @@ function upload(){
   next();
 }
 
-load();
+loadSession().then(ok=>{ if(ok) load(); });
 </script>
 </body>
 </html>

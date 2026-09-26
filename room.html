@@ -23,7 +23,22 @@
   .date{margin-top:8px;font-size:clamp(14px,2.1vmin,25px);color:var(--muted)}
   .room-main{min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);gap:clamp(14px,2.5vmin,30px)}
   .panel{min-width:0;min-height:0;overflow:auto;border:2px solid var(--line);border-radius:18px;background:linear-gradient(145deg,var(--panel),#e5a06c);padding:clamp(18px,3.5vmin,42px)}
-  .primary{display:flex;flex-direction:column;justify-content:center;min-height:clamp(280px,48vh,600px)}
+  .primary{display:flex;flex-direction:column;justify-content:center;min-height:clamp(280px,48vh,600px);position:relative;overflow:hidden}
+  #roomSlides{position:absolute;inset:0;display:none}
+  .primary.showing-slides #roomSlides{display:block}
+  .room-slide{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:flex-start;
+    padding:clamp(18px,3.5vmin,42px);opacity:0;transition:opacity 1s;
+    background-image:var(--photo);background-size:cover;background-position:center}
+  .room-slide.active{opacity:1}
+  .room-slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none}
+  body.portrait .room-slide video{object-fit:contain}
+  .room-slide .caption{position:relative;z-index:2;background:rgba(23,59,99,.82);border:2px solid var(--line);
+    padding:clamp(10px,1.8vmin,24px);border-radius:12px;max-width:70%}
+  .room-slide .caption h2{font-size:clamp(22px,3.5vmin,40px);margin-bottom:6px;color:#fff4e8}
+  .room-slide .caption p{font-size:clamp(12px,2.2vmin,22px);color:#fff4e8}
+  .g1{background:linear-gradient(135deg,#e9a36b,#d8b58b)}
+  .g2{background:linear-gradient(135deg,#8fb69b,#b9d6b7)}
+  .g3{background:linear-gradient(135deg,#789fbd,#a9c9dc)}
   .primary.has-meeting{border-color:rgba(47,143,85,.95);box-shadow:0 0 0 2px rgba(47,143,85,.18),0 18px 60px rgba(0,0,0,.2)}
   .panel-top{display:flex;align-items:center;justify-content:space-between;gap:14px}
   .panel-label{font-size:clamp(12px,1.7vmin,18px);font-weight:700;letter-spacing:1.5px;color:var(--muted)}
@@ -63,6 +78,7 @@
   body.portrait .room-header{align-items:flex-start}
   body.portrait .room-main{grid-template-columns:1fr;grid-template-rows:minmax(0,1.2fr) minmax(0,.8fr)}
   body.portrait .primary{min-height:360px}
+  body.portrait .room-slide .caption{max-width:90%}
   body.portrait .next-panel{min-height:220px}
   @media(max-width:800px){
     .room-screen{padding:16px;gap:16px}
@@ -71,7 +87,8 @@
      .clock{font-size:clamp(34px,9vw,60px)}
      .date{font-size:14px}
      .room-main{grid-template-columns:1fr;grid-template-rows:auto auto}
-     .primary{min-height:360px}
+      .primary{min-height:360px}
+      .room-slide .caption{max-width:90%}
      .next-panel{min-height:220px}
      .room-message{font-size:clamp(26px,9vw,52px)}
   }
@@ -96,6 +113,7 @@
        <h2 class="meeting-title" id="currentTitle">Room is available</h2>
       <div class="range" id="currentRange"></div>
       <div class="meta" id="currentMeta">No upcoming meeting</div>
+      <div id="roomSlides"></div>
     </section>
 
     <section class="panel next-panel rundown-panel">
@@ -129,6 +147,8 @@ let settings = {rooms:[]};
 let roomConfig = null;
 let currentEvents = [];
 let lastSettings = "";
+let lastRoomHtml = "";
+let lastPhotos = "";
 document.body.classList.toggle("portrait", query.get("orientation") === "portrait");
 
 function tick(){
@@ -304,6 +324,7 @@ function render(){
    const currentTitle = document.getElementById("currentTitle");
    const currentMeta = document.getElementById("currentMeta");
    currentPanel.classList.toggle("has-meeting", !!ongoing);
+   currentPanel.classList.toggle("showing-slides", !ongoing && roomHasSlides);
   if(ongoing){
     currentTitle.textContent = ongoing.title || "Untitled meeting";
     setRange(document.getElementById("currentRange"), ongoing);
@@ -337,13 +358,143 @@ async function loadEvents(){
   }catch(e){}
 }
 
+// Slideshow (same photos and announcements as the main board).
+// Shown in the main panel whenever this room has no on-going meeting.
+let roomHasSlides = false;
+let roomSlidesTimer = null;
+
+async function loadRoomSlides(){
+  const box = document.getElementById("roomSlides");
+  let photos = [];
+  try{
+    const response = await fetch("/api/dakboard/photos");
+    if(response.ok) photos = await response.json();
+  }catch(e){}
+  const porder = (settings.photoOrder && settings.photoOrder.length) ? settings.photoOrder : null;
+  if(porder){
+    const pos = {};
+    porder.forEach((name, i) => { pos[name] = i; });
+    photos = photos.slice().sort((a, b) => {
+      const na = a.substring(a.lastIndexOf("/") + 1), nb = b.substring(b.lastIndexOf("/") + 1);
+      const pa = (na in pos) ? pos[na] : 1e9, pb = (nb in pos) ? pos[nb] : 1e9;
+      return (pa - pb) || (na < nb ? -1 : na > nb ? 1 : 0);
+    });
+  }
+  box.innerHTML = "";
+  const anns = Array.isArray(settings.announcements) && settings.announcements.length ? settings.announcements : [];
+  const grads = ["g1", "g2", "g3"];
+  const photoAnns = settings.photoAnnouncements || {};
+  const usedAnns = new Set();
+  const slides = photos.map(src => {
+    const name = src.substring(src.lastIndexOf("/") + 1);
+    const ai = Number(photoAnns[name]);
+    const ann = (Number.isInteger(ai) && ai >= 0 && ai < anns.length) ? anns[ai] : null;
+    if(ann) usedAnns.add(ai);
+    return {img:src, title:ann ? (ann.title || "") : "", sub:ann ? (ann.sub || "") : ""};
+  });
+  anns.forEach((a, i) => {
+    if(!usedAnns.has(i)) slides.push({cls:grads[i % grads.length], title:(a.title || ""), sub:(a.sub || "")});
+  });
+  slides.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "room-slide" + (i === 0 ? " active" : "");
+    if(s.img){
+      if(isVideoFile(s.img)){
+        const video = document.createElement("video");
+        video.muted = true; video.playsInline = true; video.preload = "auto";
+        video.src = s.img;
+        d.appendChild(video);
+      }else{
+        d.style.setProperty("--photo", "url('" + s.img + "')");
+      }
+    }
+    else d.classList.add(s.cls);
+    if(s.title || s.sub){
+      const cap = document.createElement("div");
+      cap.className = "caption";
+      if(s.title){
+        const h = document.createElement("h2");
+        h.textContent = s.title;
+        cap.appendChild(h);
+      }
+      if(s.sub){
+        const p = document.createElement("p");
+        p.textContent = s.sub;
+        cap.appendChild(p);
+      }
+      d.appendChild(cap);
+    }
+    box.appendChild(d);
+  });
+  roomHasSlides = slides.length > 0;
+  if(roomSlidesTimer) clearTimeout(roomSlidesTimer);
+  let cur = 0;
+  function showRoomSlide(i){
+    const all = box.querySelectorAll(".room-slide");
+    if(!all.length) return;
+    all.forEach(s => {
+      s.classList.remove("active");
+      const v = s.querySelector("video");
+      if(v){ try{ v.pause(); }catch(e){} v.onended = null; }
+    });
+    cur = ((i % all.length) + all.length) % all.length;
+    const active = all[cur];
+    active.classList.add("active");
+    let wait = (settings.slideSeconds || 10) * 1000;
+    const video = active.querySelector("video");
+    if(video){
+      try{ video.currentTime = 0; }catch(e){}
+      try{ const p = video.play(); if(p && typeof p.catch === "function") p.catch(()=>{}); }catch(e){}
+      const dur = video.duration;
+      if(Number.isFinite(dur) && dur > 0) wait = Math.min(Math.max(dur * 1000, 1000), 60000);
+      video.onended = () => { clearTimeout(roomSlidesTimer); showRoomSlide(cur + 1); };
+    }
+    roomSlidesTimer = setTimeout(() => showRoomSlide(cur + 1), wait);
+  }
+  showRoomSlide(0);
+  render();
+}
+
+function isVideoFile(src){
+  const n = String(src || "").toLowerCase();
+  return n.endsWith(".mp4") || n.endsWith(".webm");
+}
+
+async function fetchRoomHtml(){
+  try{
+    const url = new URL(location.href);
+    url.searchParams.set("tv", Date.now());
+    const response = await fetch(url, {cache:"no-store"});
+    return response.ok ? await response.text() : null;
+  }catch(e){ return null; }
+}
+
 async function checkSettings(){
+  const html = await fetchRoomHtml();
+  if(html !== null){
+    if(lastRoomHtml && html !== lastRoomHtml){
+      location.reload();
+      return;
+    }
+    lastRoomHtml = html;
+  }
   const text = await fetchSettings();
   if(text !== null && lastSettings && text !== lastSettings){
     location.reload();
     return;
   }
   if(text !== null) lastSettings = text;
+  try{
+    const response = await fetch("/api/dakboard/photos?ts=" + Date.now(), {cache:"no-store"});
+    if(response.ok){
+      const photosText = await response.text();
+      if(lastPhotos && photosText !== lastPhotos){
+        location.reload();
+        return;
+      }
+      lastPhotos = photosText;
+    }
+  }catch(e){}
 }
 
 async function boot(){
@@ -355,6 +506,13 @@ async function boot(){
   document.getElementById("roomName").textContent = roomConfig && roomConfig.name
     ? roomConfig.name : "ROOM NOT SELECTED";
   await loadEvents();
+  await loadRoomSlides();
+  const html = await fetchRoomHtml();
+  if(html !== null) lastRoomHtml = html;
+  try{
+    const response = await fetch("/api/dakboard/photos?ts=" + Date.now(), {cache:"no-store"});
+    if(response.ok) lastPhotos = await response.text();
+  }catch(e){}
   setInterval(loadEvents, 30000);
   setInterval(checkSettings, 2000);
   window.addEventListener("focus", checkSettings);

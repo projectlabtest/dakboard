@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAKboard Admin Login</title>
+<style>
+  :root{--text:#173b63;--muted:#315b7d;--line:#2f8f55;--card:#fff4e2;--blue:#1d5687;--blue-dark:#123c62}
+  *{box-sizing:border-box}
+  body{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%);color:var(--text);font-family:Segoe UI,Arial,sans-serif}
+  .login-card{width:min(440px,100%);padding:36px;border:2px solid var(--line);border-radius:22px;background:rgba(255,244,226,.94);box-shadow:0 18px 60px rgba(23,59,99,.2)}
+  .brand{font-size:12px;font-weight:800;letter-spacing:3px;color:var(--muted)}
+  h1{margin:16px 0 8px;font-size:32px;line-height:1.1;color:var(--blue-dark)}
+  .intro{margin:0 0 26px;color:var(--muted);font-size:14px;line-height:1.5}
+  label{display:block;margin:16px 0 6px;font-size:13px;font-weight:800;color:var(--blue)}
+  input{width:100%;padding:12px 13px;border:2px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--text);font:inherit;font-size:16px}
+  input:focus{outline:3px solid rgba(29,86,135,.25);border-color:var(--blue)}
+  button{width:100%;margin-top:24px;padding:13px;border:0;border-radius:10px;background:var(--blue);color:#fff8ed;font:inherit;font-size:16px;font-weight:800;cursor:pointer}
+  button:hover{background:var(--blue-dark)}
+  #message{min-height:20px;margin-top:16px;color:#a33d32;font-size:14px;font-weight:700}
+  .foot{margin:24px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<main class="login-card">
+  <div class="brand">LIFE HOPE CENTER</div>
+  <h1>DAKboard Admin</h1>
+  <p class="intro">Sign in to manage the display, rooms, events, and photos.</p>
+  <form id="loginForm">
+    <label for="username">USERNAME</label>
+    <input id="username" name="username" value="admin" autocomplete="username" required>
+    <label for="password">PASSWORD</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <input id="next" name="next" type="hidden">
+    <button type="submit">LOG IN</button>
+    <div id="message" role="alert"></div>
+  </form>
+  <p class="foot">TV display links remain public. This login protects settings and photo management.</p>
+</main>
+<script>
+const form=document.getElementById("loginForm");
+const message=document.getElementById("message");
+document.getElementById("next").value=new URLSearchParams(location.search).get("next")||"/dakboard/admin";
+form.addEventListener("submit",async event=>{
+  event.preventDefault();
+  message.textContent="";
+  const button=form.querySelector("button");
+  button.disabled=true;
+  try{
+    const response=await fetch("/api/dakboard/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:new URLSearchParams(new FormData(form)).toString(),
+      credentials:"same-origin"
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){
+      message.textContent=data.error||"Login failed.";
+      return;
+    }
+    location.href=data.next||"/dakboard/admin";
+  }catch(error){
+    message.textContent="Cannot reach the DAKboard server.";
+  }finally{
+    button.disabled=false;
+  }
+});
+</script>
+</body>
+</html>
