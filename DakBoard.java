@@ -361,7 +361,7 @@ public class DakBoard {
       return;
     }
     if (next == null && rawName != null && !rawName.trim().isEmpty() && !hasEditorHash()) {
-      send(ex, 400, "{\"error\":\"No editor password is set yet â€” type one (12+ characters).\"}",
+      send(ex, 400, "{\"error\":\"No editor password is set yet — type one (12+ characters).\"}",
           "application/json");
       return;
     }
@@ -399,7 +399,7 @@ public class DakBoard {
           Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
         }
       } else {
-        send(ex, 400, "{\"error\":\"No editor password is set yet â€” type one (12+ characters).\"}",
+        send(ex, 400, "{\"error\":\"No editor password is set yet — type one (12+ characters).\"}",
             "application/json");
         return;
       }

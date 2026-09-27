@@ -95,7 +95,7 @@
     <input type="text" id="editorLink" readonly onclick="this.select()">
     <label>EDITOR USERNAME (3-32 characters: letters, numbers, dot, underscore, hyphen)</label>
     <input type="text" id="editorUsername" autocomplete="off">
-    <label>SET EDITOR PASSWORD (12+ characters â€” blank = keep the current one)</label>
+    <label>SET EDITOR PASSWORD (12+ characters — blank = keep the current one)</label>
     <input type="password" id="editorPassword" autocomplete="new-password">
     <div class="db-actions">
       <span id="editorStatus" style="font-size:13px;font-weight:700;color:#64748b"></span>
@@ -120,19 +120,19 @@
 
   <div class="db-card">
     <h2>Bible verses (rotating)</h2>
-    <label>SEARCH THE BIBLE (King James Version) â€” mag-type ng reference tulad ng John 3:16 o keyword tulad ng peace</label>
+    <label>SEARCH THE BIBLE (King James Version) — mag-type ng reference tulad ng John 3:16 o keyword tulad ng peace</label>
     <div class="db-row">
       <input type="text" id="verseSearch" placeholder="John 3:16  o  peace" onkeydown="if(event.key==='Enter'){event.preventDefault();searchVerses();}">
       <button type="button" class="db-btn" onclick="searchVerses()">Search</button>
     </div>
     <div id="verseResults" style="display:flex;flex-direction:column;gap:8px;margin:8px 0"></div>
-    <label>VERSE LIST â€” one per line, format: Text | Reference (puwede ring i-type nang manu-mano)</label>
+    <label>VERSE LIST — one per line, format: Text | Reference (puwede ring i-type nang manu-mano)</label>
     <textarea id="verses" rows="6"></textarea>
   </div>
 
   <div class="db-card">
     <h2>Display settings</h2>
-    <label>SLIDE DURATION (seconds, 3â€“120)</label>
+    <label>SLIDE DURATION (seconds, 3–120)</label>
     <input type="number" id="slideSeconds" min="3" max="120" value="10">
     <label>WEATHER LATITUDE</label>
     <input type="text" id="weatherLat" value="14.2306">
@@ -141,7 +141,7 @@
     <p style="font-size:12px;color:#777">Silang default: 14.2306, 120.9750</p>
     <label>OUTLOOK CALENDAR ICS URL (optional)</label>
     <input type="text" id="outlookIcsUrl" value="" placeholder="https://outlook.live.com/.../calendar.ics">
-    <p style="font-size:12px;color:#777">Sa Outlook: Calendar â†’ Share â†’ Publish calendar â†’ kopyahin ang ICS link at i-paste dito. Blank kung ayaw.</p>
+    <p style="font-size:12px;color:#777">Sa Outlook: Calendar → Share → Publish calendar → kopyahin ang ICS link at i-paste dito. Blank kung ayaw.</p>
   </div>
 
   <div class="db-card">
@@ -154,22 +154,22 @@
     <p style="font-size:12px;color:#777;margin:0 0 10px">Click a URL, then press Ctrl+C to copy it. Buksan ang URL sa browser ng TV.</p>
     <label>BOARD ORIENTATION</label>
     <select id="orientation" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
-      <option value="landscape">Landscape â€” wide TV / monitor</option>
-      <option value="portrait">Portrait â€” vertical display</option>
+      <option value="landscape">Landscape — wide TV / monitor</option>
+      <option value="portrait">Portrait — vertical display</option>
     </select>
     <label>LANDSCAPE OUTPUT URL</label>
     <input type="text" id="landscapeOutputUrl" readonly onclick="this.select()">
     <label>PORTRAIT OUTPUT URL</label>
     <input type="text" id="portraitOutputUrl" readonly onclick="this.select()">
-    <label>SLIDES OUTPUT URL â€” LANDSCAPE (slides + running text only)</label>
+    <label>SLIDES OUTPUT URL — LANDSCAPE (slides + running text only)</label>
     <input type="text" id="slidesLandscapeUrl" readonly onclick="this.select()">
-    <label>SLIDES OUTPUT URL â€” PORTRAIT (slides + running text only)</label>
+    <label>SLIDES OUTPUT URL — PORTRAIT (slides + running text only)</label>
     <input type="text" id="slidesPortraitUrl" readonly onclick="this.select()">
-    <label>ROOM OUTPUT â€” SELECT ROOM</label>
+    <label>ROOM OUTPUT — SELECT ROOM</label>
     <select id="roomOutputSelect" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff" onchange="updateRoomOutputUrls()"></select>
-    <label>ROOM OUTPUT URL â€” LANDSCAPE (meeting + announcements)</label>
+    <label>ROOM OUTPUT URL — LANDSCAPE (meeting + announcements)</label>
     <input type="text" id="roomLandscapeUrl" readonly onclick="this.select()">
-    <label>ROOM OUTPUT URL â€” PORTRAIT (meeting + announcements)</label>
+    <label>ROOM OUTPUT URL — PORTRAIT (meeting + announcements)</label>
     <input type="text" id="roomPortraitUrl" readonly onclick="this.select()">
     <p style="font-size:12px;color:#777;margin:14px 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
     <div id="rooms"></div>
@@ -177,7 +177,7 @@
   </div>
 
   <div class="db-card">
-    <button type="button" class="db-btn" onclick="save()">SAVE â€” update the board</button>
+    <button type="button" class="db-btn" onclick="save()">SAVE — update the board</button>
   </div>
 
   <div class="db-card">
@@ -186,7 +186,7 @@
       <input type="file" id="photoFile" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm" multiple>
       <button type="button" class="db-btn" onclick="upload()">Upload</button>
     </div>
-    <p style="font-size:12px;color:#777;margin:0 0 8px">Photos o maikling highlight video (MP4/WebM, hanggang ~24MB bawat file, hanggang 10 sabay-sabay). Sa bawat photo, pumili ng â€œPhoto onlyâ€ o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
+    <p style="font-size:12px;color:#777;margin:0 0 8px">Photos o maikling highlight video (MP4/WebM, hanggang ~24MB bawat file, hanggang 10 sabay-sabay). Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
     <div class="db-thumbs" id="thumbs"></div>
   </div>
 </div>
@@ -382,7 +382,7 @@ function refreshEditorAccess(){
   document.getElementById("editorLink").value = location.origin + "/lhc-events-board/editor";
   if(SESSION){
     document.getElementById("editorUsername").value = SESSION.editorUsername || "editor";
-    editorStatus(SESSION.editorEnabled ? "Editor login is ON." : "Editor login is OFF â€” mag-set ng password para buksan.",
+    editorStatus(SESSION.editorEnabled ? "Editor login is ON." : "Editor login is OFF — mag-set ng password para buksan.",
       SESSION.editorEnabled ? "ok" : "");
   }
 }
@@ -479,7 +479,7 @@ function addVerseToBox(text, ref){
   const box = document.getElementById("verses");
   box.value = (box.value.trim() ? box.value.trim() + "\n" : "") + clean + " | " + label;
   box.scrollTop = box.scrollHeight;
-  status("Added " + label + " â€” pindutin ang SAVE para lumabas ito sa TV.", "ok");
+  status("Added " + label + " — pindutin ang SAVE para lumabas ito sa TV.", "ok");
 }
 
 function renderVerseResult(ref, text){
@@ -536,7 +536,7 @@ async function searchVerses(){
         if(items.length > 20){
           const more = document.createElement("div");
           more.style.cssText = "font-size:12px;color:#64748b";
-          more.textContent = "Showing 20 of " + items.length + " verses â€” pumili ng mas maikling range tulad ng John 3:16-17.";
+          more.textContent = "Showing 20 of " + items.length + " verses — pumili ng mas maikling range tulad ng John 3:16-17.";
           results.appendChild(more);
         }
         return;
@@ -561,11 +561,11 @@ async function searchVerses(){
     if(data.total > items.length){
       const more = document.createElement("div");
       more.style.cssText = "font-size:12px;color:#64748b";
-      more.textContent = "Showing " + items.length + " of " + data.total + " matches â€” mas tiyak na salita ang ilagay para umikli.";
+      more.textContent = "Showing " + items.length + " of " + data.total + " matches — mas tiyak na salita ang ilagay para umikli.";
       results.appendChild(more);
     }
   }catch(error){
-    verseResultsMessage("Cannot reach the Bible search â€” check internet connection, o i-type nang manu-mano sa box sa ibaba.", true);
+    verseResultsMessage("Cannot reach the Bible search — check internet connection, o i-type nang manu-mano sa box sa ibaba.", true);
   }
 }
 
@@ -577,7 +577,7 @@ function addAnn(title, sub){
   const s = document.createElement("input");
   s.type = "text"; s.placeholder = "Subtitle"; s.value = sub || "";
   const b = document.createElement("button");
-  b.type = "button"; b.className = "db-btn danger"; b.textContent = "Ã—";
+  b.type = "button"; b.className = "db-btn danger"; b.textContent = "×";
   b.onclick = () => d.remove();
   d.append(t, s, b);
   document.getElementById("anns").appendChild(d);
@@ -626,7 +626,7 @@ function addRoom(room){
   portraitField.append(portraitLabel, portraitInput);
   urls.append(landscapeField, portraitField);
   const remove = document.createElement("button");
-  remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "Ã—";
+  remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
   remove.onclick = () => { row.remove(); refreshRoomOutputSelect(); };
   const updateUrls = () => {
     const name = nameInput.value.trim();
@@ -715,7 +715,7 @@ async function loadPhotos(){
     currentPhotos = await r.json();
   }catch(e){ currentPhotos = []; }
   if(!currentPhotos.length){
-    box.innerHTML = "<p style='font-size:13px;color:#777'>No photos yet â€” upload above (up to 10 at once).</p>";
+    box.innerHTML = "<p style='font-size:13px;color:#777'>No photos yet — upload above (up to 10 at once).</p>";
     return;
   }
   const order = orderedNames(currentPhotos);
@@ -760,7 +760,7 @@ async function loadPhotos(){
     });
     const grip = document.createElement("div");
     grip.className = "db-grip";
-    grip.textContent = "â‹®â‹® drag to reorder";
+    grip.textContent = "⋮⋮ drag to reorder";
     d.appendChild(grip);
     if(isVideoFile(name)){
       const video = document.createElement("video");
@@ -795,11 +795,11 @@ async function loadPhotos(){
     const row = document.createElement("div");
     row.style.display = "flex"; row.style.gap = "4px"; row.style.justifyContent = "center";
     const up = document.createElement("button");
-    up.className = "db-btn sec"; up.textContent = "â–²"; up.title = "Move earlier";
+    up.className = "db-btn sec"; up.textContent = "▲"; up.title = "Move earlier";
     up.disabled = (idx === 0);
     up.onclick = () => movePhoto(name, -1);
     const dn = document.createElement("button");
-    dn.className = "db-btn sec"; dn.textContent = "â–¼"; dn.title = "Move later";
+    dn.className = "db-btn sec"; dn.textContent = "▼"; dn.title = "Move later";
     dn.disabled = (idx === order.length - 1);
     dn.onclick = () => movePhoto(name, 1);
     const del = document.createElement("button");
@@ -825,7 +825,7 @@ async function setPhotoAnnouncement(name, value){
   else out.photoAnnouncements[name] = parseInt(value, 10);
   if(await postSettings(out)){
     applySavedSettings(out);
-    status("Photo display saved â€” all TV outputs update automatically.", "ok");
+    status("Photo display saved — all TV outputs update automatically.", "ok");
   }else{
     status("Photo display save failed.", "err");
     loadPhotos();
@@ -915,7 +915,7 @@ async function movePhoto(name, dir){
   const t = order[i]; order[i] = order[j]; order[j] = t;
   const out = collectSettings();
   out.photoOrder = order;
-  if(await postSettings(out)){ applySavedSettings(out); status("Photo order saved â€” all TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
+  if(await postSettings(out)){ applySavedSettings(out); status("Photo order saved — all TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
   else status("Save failed.", "err");
 }
 
@@ -930,7 +930,7 @@ async function dropPhoto(fromName, targetName, after){
   const out = collectSettings();
   out.photoOrder = order;
   dragPhotoName = null;
-  if(await postSettings(out)){ applySavedSettings(out); status("Photo order saved â€” all TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
+  if(await postSettings(out)){ applySavedSettings(out); status("Photo order saved — all TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
   else status("Save failed.", "err");
 }
 
@@ -939,7 +939,7 @@ function upload(){
   if(!files.length){ status("Choose photos first.", "err"); return; }
   if(files.length > 10){ status("Maximum 10 photos at a time.", "err"); return; }
   const tooBig = files.find(f => f.size > 24 * 1024 * 1024);
-  if(tooBig){ status(tooBig.name + " is too large â€” keep each file under ~24MB.", "err"); return; }
+  if(tooBig){ status(tooBig.name + " is too large — keep each file under ~24MB.", "err"); return; }
   let i = 0, ok = 0;
   status("Uploading 1/" + files.length + "...", "");
   async function next(){
