@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LIFE HOPE CENTER â€” LHC Events Board</title>
+<title>LIFE HOPE CENTER — LHC Events Board</title>
 <style>
   /* EDIT HERE: change colors / branding */
   :root{
@@ -126,7 +126,7 @@
       <div class="clock" id="clock">--:--</div>
       <div class="date" id="date">...</div>
     </div>
-    <div class="weather" id="weather">â³ Loading weather...</div>
+    <div class="weather" id="weather">⏳ Loading weather...</div>
      <div class="cal" id="eventsCard" style="display:none">
        <h3 id="eventsTitle">EVENT RUNDOWN</h3>
        <div class="room-info" id="roomInfo" style="display:none">
@@ -150,11 +150,11 @@
    in settings.json. These defaults are used only if the server settings
    cannot be reached. */
 const CONFIG = {
-  ticker: "Welcome to LIFE HOPE CENTER  â€¢  Sunday Service 9:00 AM  â€¢  Midweek Prayer Wednesday 6PM  â€¢  Press F11 for fullscreen",
+  ticker: "Welcome to LIFE HOPE CENTER  •  Sunday Service 9:00 AM  •  Midweek Prayer Wednesday 6PM  •  Press F11 for fullscreen",
   announcements: [
-    {title:"Welcome!", sub:"LIFE HOPE CENTER â€” To God be the glory", cls:"g1"},
+    {title:"Welcome!", sub:"LIFE HOPE CENTER — To God be the glory", cls:"g1"},
     {title:"Sunday Service 9:00 AM", sub:"Bring your family and friends", cls:"g2"},
-    {title:"Midweek Prayer â€” Wed 6PM", sub:"Let us pray together", cls:"g3"},
+    {title:"Midweek Prayer — Wed 6PM", sub:"Let us pray together", cls:"g3"},
   ],
   verses: [
     {text:"I am the way, the truth, and the life.", ref:"John 14:6"},
@@ -316,7 +316,7 @@ function verse(){
   const v=list[vi%list.length];
   const text = v.text || v[0], ref = v.ref || v[1] || "";
   document.getElementById("verse-text").textContent="\u201C"+text+"\u201D";
-  document.getElementById("verse-ref").textContent=ref ? "â€” "+ref : "";
+  document.getElementById("verse-ref").textContent=ref ? "— "+ref : "";
   vi++;
 }
 
@@ -328,7 +328,7 @@ async function loadSlides(){
     const r=await fetch("/api/lhc-events-board/photos");
     if(r.ok) photos=await r.json();
   }catch(e){}
-  // order photos as arranged in the control page (â–²â–¼)
+  // order photos as arranged in the control page (▲▼)
   const porder = (S.photoOrder && S.photoOrder.length) ? S.photoOrder : null;
   if(porder){
     const pos = {};
@@ -459,7 +459,7 @@ function renderEvents(){
     if(e.date !== lastDate){
       const date = document.createElement("div");
       date.className = "events-date";
-      date.textContent = (e.date === today ? "TODAY â€¢ " : "") + (e.day || e.date || "");
+      date.textContent = (e.date === today ? "TODAY • " : "") + (e.day || e.date || "");
       box.appendChild(date);
       lastDate = e.date;
     }
@@ -522,17 +522,17 @@ async function loadWeather(){
     const r=await fetch(u); const j=await r.json();
     const t=Math.round(j.current.temperature_2m);
     const code=j.current.weather_code;
-    const desc={0:"Clear â˜€ï¸",1:"Mostly clear â›…",2:"Partly cloudy â›…",3:"Overcast â˜ï¸",
-      45:"Foggy ðŸŒ«ï¸",48:"Foggy ðŸŒ«ï¸",51:"Drizzle ðŸŒ¦ï¸",53:"Drizzle ðŸŒ¦ï¸",55:"Drizzle ðŸŒ¦ï¸",
-      56:"Freezing drizzle ðŸ§Š",57:"Freezing drizzle ðŸ§Š",
-      61:"Rain ðŸŒ§ï¸",63:"Rain ðŸŒ§ï¸",65:"Heavy rain ðŸŒ§ï¸",66:"Freezing rain ðŸ§Š",67:"Freezing rain ðŸ§Š",
-      71:"Snow ðŸŒ¨ï¸",73:"Snow ðŸŒ¨ï¸",75:"Heavy snow ðŸŒ¨ï¸",77:"Snow grains ðŸŒ¨ï¸",
-      80:"Rain showers ðŸŒ¦ï¸",81:"Rain showers ðŸŒ¦ï¸",82:"Heavy showers ðŸŒ§ï¸",
-      85:"Snow showers ðŸŒ¨ï¸",86:"Snow showers ðŸŒ¨ï¸",
-      95:"Thunderstorm â›ˆï¸",96:"Thunderstorm â›ˆï¸",99:"Thunderstorm â›ˆï¸"}[code]||"Weather code "+code;
-    document.getElementById("weather").textContent="ðŸŒ¡ï¸ Silang "+t+"Â°C â€” "+desc;
+    const desc={0:"Clear ☀️",1:"Mostly clear ⛅",2:"Partly cloudy ⛅",3:"Overcast ☁️",
+      45:"Foggy 🌫️",48:"Foggy 🌫️",51:"Drizzle 🌦️",53:"Drizzle 🌦️",55:"Drizzle 🌦️",
+      56:"Freezing drizzle 🧊",57:"Freezing drizzle 🧊",
+      61:"Rain 🌧️",63:"Rain 🌧️",65:"Heavy rain 🌧️",66:"Freezing rain 🧊",67:"Freezing rain 🧊",
+      71:"Snow 🌨️",73:"Snow 🌨️",75:"Heavy snow 🌨️",77:"Snow grains 🌨️",
+      80:"Rain showers 🌦️",81:"Rain showers 🌦️",82:"Heavy showers 🌧️",
+      85:"Snow showers 🌨️",86:"Snow showers 🌨️",
+      95:"Thunderstorm ⛈️",96:"Thunderstorm ⛈️",99:"Thunderstorm ⛈️"}[code]||"Weather code "+code;
+    document.getElementById("weather").textContent="🌡️ Silang "+t+"°C — "+desc;
   }catch(e){
-    document.getElementById("weather").textContent="ðŸŒ¡ï¸ Weather offline â€” check internet";
+    document.getElementById("weather").textContent="🌡️ Weather offline — check internet";
   }
 }
 
