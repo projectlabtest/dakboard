@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DAKboard Admin Login</title>
+<title>LHC Events Board â€” Admin Login</title>
 <style>
   :root{--text:#173b63;--muted:#315b7d;--line:#2f8f55;--card:#fff4e2;--blue:#1d5687;--blue-dark:#123c62}
   *{box-sizing:border-box}
@@ -24,7 +24,7 @@
 <body>
 <main class="login-card">
   <div class="brand">LIFE HOPE CENTER</div>
-  <h1>DAKboard Admin</h1>
+  <h1>LHC Events Board</h1>
   <p class="intro">Sign in to manage the display, rooms, events, and photos.</p>
   <form id="loginForm">
     <label for="username">USERNAME</label>
@@ -40,14 +40,14 @@
 <script>
 const form=document.getElementById("loginForm");
 const message=document.getElementById("message");
-document.getElementById("next").value=new URLSearchParams(location.search).get("next")||"/dakboard/admin";
+document.getElementById("next").value=new URLSearchParams(location.search).get("next")||"/lhc-events-board/admin";
 form.addEventListener("submit",async event=>{
   event.preventDefault();
   message.textContent="";
   const button=form.querySelector("button");
   button.disabled=true;
   try{
-    const response=await fetch("/api/dakboard/login",{
+    const response=await fetch("/api/lhc-events-board/login",{
       method:"POST",
       headers:{"Content-Type":"application/x-www-form-urlencoded"},
       body:new URLSearchParams(new FormData(form)).toString(),
@@ -58,9 +58,9 @@ form.addEventListener("submit",async event=>{
       message.textContent=data.error||"Login failed.";
       return;
     }
-    location.href=data.next||"/dakboard/admin";
+    location.href=data.next||"/lhc-events-board/admin";
   }catch(error){
-    message.textContent="Cannot reach the DAKboard server.";
+    message.textContent="Cannot reach the LHC Events Board server.";
   }finally{
     button.disabled=false;
   }
