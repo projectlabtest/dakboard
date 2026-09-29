@@ -34,13 +34,13 @@
   .db-thumb label{display:block;font-size:10px;font-weight:700;margin:6px 0 3px;color:#555}
   .db-photo-ann{width:100%;padding:6px;border:1px solid #bbb;border-radius:6px;font-size:12px;box-sizing:border-box}
   .db-room{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;background:#f8fafc}
-  .db-room-fields,.db-room-urls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .db-room-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .db-room label{display:block;font-size:10px;font-weight:700;color:#555;margin:0 0 3px}
   .db-room input{padding:7px!important}
-  .db-room-urls{min-width:0}
+  .db-room-fields{min-width:0}
   @media(max-width:700px){
     .db-room{grid-template-columns:1fr}
-    .db-room-fields,.db-room-urls{grid-template-columns:1fr}
+    .db-room-fields{grid-template-columns:1fr}
   }
   #status{font-size:14px;font-weight:700;min-height:20px}
   #status.ok{color:#059669} #status.err{color:#dc2626}
@@ -91,9 +91,14 @@
 
   <div class="db-card" id="roomsPanel" style="display:none">
     <h2>Room outputs</h2>
-    <p style="font-size:12px;color:#777;margin:0 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
-    <div id="rooms"></div>
-    <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
+    <div style="margin:0 0 10px">
+      <button type="button" class="db-btn sec" id="manageRoomsToggle" onclick="toggleManageRooms()">MANAGE ROOMS</button>
+    </div>
+    <div id="manageRoomsPanel" style="display:none">
+      <p style="font-size:12px;color:#777;margin:0 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
+      <div id="rooms"></div>
+      <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
+    </div>
   </div>
 
   <div class="db-card">
@@ -175,6 +180,11 @@ function toggleRoomsPanel(){
     const first = panel.querySelector("input");
     if(first) first.focus();
   }
+}
+
+function toggleManageRooms(){
+  const panel = document.getElementById("manageRoomsPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
 const BIBLE_BOOKS = ["","Genesis","Exodus","Leviticus","Numbers","Deuteronomy",
@@ -349,34 +359,11 @@ function addRoom(room){
   locationInput.type = "text"; locationInput.placeholder = "Executive Meeting Room"; locationInput.value = values.location;
   locationField.append(locationLabel, locationInput);
   fields.append(nameField, locationField);
-  const urls = document.createElement("div");
-  urls.className = "db-room-urls";
-  const landscapeField = document.createElement("div");
-  const landscapeLabel = document.createElement("label");
-  landscapeLabel.textContent = "LANDSCAPE URL";
-  const landscapeInput = document.createElement("input");
-  landscapeInput.type = "text"; landscapeInput.readOnly = true;
-  landscapeField.append(landscapeLabel, landscapeInput);
-  const portraitField = document.createElement("div");
-  const portraitLabel = document.createElement("label");
-  portraitLabel.textContent = "PORTRAIT URL";
-  const portraitInput = document.createElement("input");
-  portraitInput.type = "text"; portraitInput.readOnly = true;
-  portraitField.append(portraitLabel, portraitInput);
-  urls.append(landscapeField, portraitField);
   const remove = document.createElement("button");
   remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
   remove.onclick = () => row.remove();
-  const updateUrls = () => {
-    const name = nameInput.value.trim();
-    const suffix = name ? "&room=" + encodeURIComponent(name) : "";
-    landscapeInput.value = location.origin + "/lhc-events-board/room?orientation=landscape" + suffix;
-    portraitInput.value = location.origin + "/lhc-events-board/room?orientation=portrait" + suffix;
-  };
-  nameInput.addEventListener("input", updateUrls);
-  row.append(fields, urls, remove);
+  row.append(fields, remove);
   document.getElementById("rooms").appendChild(row);
-  updateUrls();
 }
 
 function renderRooms(){
