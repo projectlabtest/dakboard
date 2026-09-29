@@ -226,14 +226,30 @@ let icsUrlEdited = false;
 document.getElementById("outlookIcsUrl").addEventListener("input", () => {
   icsUrlEdited = true;
 });
-document.getElementById("landscapeOutputUrl").value = location.origin + "/lhc-events-board?orientation=landscape";
-document.getElementById("portraitOutputUrl").value = location.origin + "/lhc-events-board?orientation=portrait";
-document.getElementById("slidesLandscapeUrl").value = location.origin + "/lhc-events-board/slides?orientation=landscape";
-document.getElementById("slidesPortraitUrl").value = location.origin + "/lhc-events-board/slides?orientation=portrait";
-document.getElementById("scheduleLandscapeUrl").value = location.origin + "/lhc-events-board/schedule?orientation=landscape";
-document.getElementById("schedulePortraitUrl").value = location.origin + "/lhc-events-board/schedule?orientation=portrait";
-document.getElementById("roomLandscapeUrl").value = location.origin + "/lhc-events-board/room?orientation=landscape";
-document.getElementById("roomPortraitUrl").value = location.origin + "/lhc-events-board/room?orientation=portrait";
+let SERVER_BASE = location.origin;
+function applyOutputUrls(){
+  document.getElementById("landscapeOutputUrl").value = SERVER_BASE + "/lhc-events-board?orientation=landscape";
+  document.getElementById("portraitOutputUrl").value = SERVER_BASE + "/lhc-events-board?orientation=portrait";
+  document.getElementById("slidesLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=landscape";
+  document.getElementById("slidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=portrait";
+  document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=landscape";
+  document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait";
+  updateRoomOutputUrls();
+}
+applyOutputUrls();
+async function resolveServerBase(){
+  try{
+    const r = await fetch("/api/lhc-events-board/server-info", {cache:"no-store"});
+    if(r.ok){
+      const j = await r.json();
+      if(j && j.lanIp && j.port){
+        SERVER_BASE = "http://" + j.lanIp + ":" + j.port;
+        applyOutputUrls();
+      }
+    }
+  }catch(e){}
+}
+resolveServerBase();
 
 function roomOutputNames(){
   const names = [];
@@ -249,8 +265,8 @@ function updateRoomOutputUrls(){
   const sel = document.getElementById("roomOutputSelect");
   const name = sel && sel.value ? sel.value : "";
   const suffix = name ? "&room=" + encodeURIComponent(name) : "";
-  document.getElementById("roomLandscapeUrl").value = location.origin + "/lhc-events-board/room?orientation=landscape" + suffix;
-  document.getElementById("roomPortraitUrl").value = location.origin + "/lhc-events-board/room?orientation=portrait" + suffix;
+  document.getElementById("roomLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/room?orientation=landscape" + suffix;
+  document.getElementById("roomPortraitUrl").value = SERVER_BASE + "/lhc-events-board/room?orientation=portrait" + suffix;
 }
 
 function refreshRoomOutputSelect(){
