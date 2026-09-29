@@ -2,7 +2,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.http.HttpClient;
@@ -26,6 +30,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +69,7 @@ public class DakBoard {
   static final long SESSION_TTL_SECONDS = 8L * 60L * 60L;
   static final SecureRandom AUTH_RANDOM = new SecureRandom();
   static final Map<String, Session> SESSIONS = new ConcurrentHashMap<>();
+  static volatile int SERVER_PORT = 8080;
 
   static class Session {
     final String csrf;
@@ -81,6 +87,7 @@ public class DakBoard {
     if (args.length > 0) {
       port = Integer.parseInt(args[0]);
     }
+    SERVER_PORT = port;
     Files.createDirectories(ROOT.resolve("photos"));
     Path settings = ROOT.resolve("settings.json");
     if (!Files.exists(settings)) {
@@ -112,6 +119,7 @@ public class DakBoard {
     server.createContext("/api/lhc-events-board/editor-password", DakBoard::handleEditorPassword);
     server.createContext("/api/lhc-events-board/admin/settings", DakBoard::handleAdminSettings);
     server.createContext("/api/lhc-events-board/settings", DakBoard::handleSettings);
+    server.createContext("/api/lhc-events-board/server-info", DakBoard::handleServerInfo);
     server.createContext("/api/lhc-events-board/photos/upload", DakBoard::handleUpload);
     server.createContext("/api/lhc-events-board/photos/delete", DakBoard::handleDelete);
     server.createContext("/api/lhc-events-board/photos", DakBoard::handlePhotos);
@@ -1344,6 +1352,42 @@ public class DakBoard {
     ex.getResponseHeaders().set("Location", location);
     ex.sendResponseHeaders(302, -1);
     ex.close();
+  }
+
+  static void handleServerInfo(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) {
+      send(ex, 405, "Method not allowed", "text/plain");
+      return;
+    }
+    String json = "{\"lanIp\":\"" + primaryLanAddress() + "\",\"port\":" + SERVER_PORT + "}";
+    send(ex, 200, json, "application/json; charset=utf-8");
+  }
+
+  static String primaryLanAddress() {
+    String fallback = "";
+    try {
+      for (NetworkInterface nif : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+        if (!nif.isUp() || nif.isLoopback()) continue;
+        for (InterfaceAddress ia : nif.getInterfaceAddresses()) {
+          InetAddress addr = ia.getAddress();
+          if (!(addr instanceof Inet4Address)) continue;
+          if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() || addr.isAnyLocalAddress()) continue;
+          byte[] b = addr.getAddress();
+          int a0 = b[0] & 0xff;
+          int a1 = b[1] & 0xff;
+          int a2 = b[2] & 0xff;
+          if (a0 == 100 && a1 >= 64 && a1 <= 127) continue;
+          boolean privateRange = a0 == 10 || (a0 == 192 && a1 == 168)
+              || (a0 == 172 && a1 >= 16 && a1 <= 31);
+          boolean icsHotspot = a0 == 192 && a1 == 168 && a2 == 137;
+          if (privateRange && !icsHotspot) return addr.getHostAddress();
+          if (fallback.isEmpty()) fallback = addr.getHostAddress();
+        }
+      }
+    } catch (Exception e) {
+      return "";
+    }
+    return fallback;
   }
 
   static void send(HttpExchange ex, int code, String body, String contentType)
