@@ -102,6 +102,7 @@ public class DakBoard {
     server.createContext("/lhc-events-board/admin", DakBoard::handleAdmin);
     server.createContext("/lhc-events-board/editor", DakBoard::handleEditorPage);
     server.createContext("/lhc-events-board/room", DakBoard::handleRoom);
+    server.createContext("/lhc-events-board/schedule", DakBoard::handleSchedule);
     server.createContext("/lhc-events-board/slides", DakBoard::handleSlides);
     server.createContext("/lhc-events-board", DakBoard::handleBoard);
     server.createContext("/api/lhc-events-board/login", DakBoard::handleLogin);
@@ -168,6 +169,10 @@ public class DakBoard {
       handleRoom(ex);
       return;
     }
+    if ("schedule".equals(settingsField("mainOutput"))) {
+      sendFile(ex, ROOT.resolve("schedule.html"), "text/html; charset=utf-8");
+      return;
+    }
     sendFile(ex, ROOT.resolve("board.html"), "text/html; charset=utf-8");
   }
 
@@ -179,6 +184,11 @@ public class DakBoard {
   static void handleSlides(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     sendFile(ex, ROOT.resolve("slides.html"), "text/html; charset=utf-8");
+  }
+
+  static void handleSchedule(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    sendFile(ex, ROOT.resolve("schedule.html"), "text/html; charset=utf-8");
   }
 
   static boolean hasQueryParam(String query, String name) {
@@ -459,6 +469,8 @@ public class DakBoard {
         body = insertJsonFieldIfMissing(body, "weatherLat", jsonRawField(current, "weatherLat"));
         body = insertJsonFieldIfMissing(body, "weatherLon", jsonRawField(current, "weatherLon"));
         body = insertJsonFieldIfMissing(body, "orientation", jsonRawField(current, "orientation"));
+        body = insertJsonFieldIfMissing(body, "mainOutput", jsonRawField(current, "mainOutput"));
+        body = insertJsonFieldIfMissing(body, "outputDesign", jsonRawField(current, "outputDesign"));
       }
       Path tmp = ROOT.resolve("settings.json.tmp");
       Files.write(tmp, body.getBytes(StandardCharsets.UTF_8));

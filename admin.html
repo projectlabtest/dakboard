@@ -34,13 +34,13 @@
   .db-thumb label{display:block;font-size:10px;font-weight:700;margin:6px 0 3px;color:#555}
   .db-photo-ann{width:100%;padding:6px;border:1px solid #bbb;border-radius:6px;font-size:12px;box-sizing:border-box}
   .db-room{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;background:#f8fafc}
-  .db-room-fields,.db-room-urls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .db-room-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .db-room label{display:block;font-size:10px;font-weight:700;color:#555;margin:0 0 3px}
   .db-room input{padding:7px!important}
-  .db-room-urls{min-width:0}
+  .db-room-fields{min-width:0}
   @media(max-width:700px){
     .db-room{grid-template-columns:1fr}
-    .db-room-fields,.db-room-urls{grid-template-columns:1fr}
+    .db-room-fields{grid-template-columns:1fr}
   }
   #status{font-size:14px;font-weight:700;min-height:20px}
   #status.ok{color:#059669} #status.err{color:#dc2626}
@@ -132,6 +132,17 @@
 
   <div class="db-card">
     <h2>Display settings</h2>
+    <label>MAIN OUTPUT (shown at the main URL)</label>
+    <select id="mainOutput" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
+      <option value="board">Board — full display</option>
+      <option value="schedule">Event Schedule — slideshow + rundown</option>
+    </select>
+    <label>OUTPUT DESIGN (room &amp; schedule outputs)</label>
+    <select id="outputDesign" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
+      <option value="classic">Classic — stacked (original)</option>
+      <option value="split">Side by side — slideshow + rundown</option>
+    </select>
+    <p style="font-size:12px;color:#777">Side by side: slideshow sa kaliwa, rundown sa kanan sa portrait TVs.</p>
     <label>SLIDE DURATION (seconds, 3–120)</label>
     <input type="number" id="slideSeconds" min="3" max="120" value="10">
     <label>WEATHER LATITUDE</label>
@@ -165,15 +176,24 @@
     <input type="text" id="slidesLandscapeUrl" readonly onclick="this.select()">
     <label>SLIDES OUTPUT URL — PORTRAIT (slides + running text only)</label>
     <input type="text" id="slidesPortraitUrl" readonly onclick="this.select()">
+    <label>SCHEDULE OUTPUT URL — LANDSCAPE (slideshow + event rundown, no room status)</label>
+    <input type="text" id="scheduleLandscapeUrl" readonly onclick="this.select()">
+    <label>SCHEDULE OUTPUT URL — PORTRAIT (slideshow + event rundown, no room status)</label>
+    <input type="text" id="schedulePortraitUrl" readonly onclick="this.select()">
     <label>ROOM OUTPUT — SELECT ROOM</label>
     <select id="roomOutputSelect" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff" onchange="updateRoomOutputUrls()"></select>
     <label>ROOM OUTPUT URL — LANDSCAPE (meeting + announcements)</label>
     <input type="text" id="roomLandscapeUrl" readonly onclick="this.select()">
     <label>ROOM OUTPUT URL — PORTRAIT (meeting + announcements)</label>
     <input type="text" id="roomPortraitUrl" readonly onclick="this.select()">
-    <p style="font-size:12px;color:#777;margin:14px 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
-    <div id="rooms"></div>
-    <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
+    <div style="margin-top:12px">
+      <button type="button" class="db-btn sec" id="manageRoomsToggle" onclick="toggleManageRooms()">MANAGE ROOMS</button>
+    </div>
+    <div id="manageRoomsPanel" style="display:none;margin-top:10px">
+      <p style="font-size:12px;color:#777;margin:0 0 10px">Each room gets its own display URL. The Calendar Location field must match the LOCATION value in the Outlook event; this prevents a meeting from appearing in the wrong room.</p>
+      <div id="rooms"></div>
+      <button type="button" class="db-btn sec" onclick="addRoom()">+ Add room</button>
+    </div>
   </div>
 
   <div class="db-card">
@@ -210,6 +230,8 @@ document.getElementById("landscapeOutputUrl").value = location.origin + "/lhc-ev
 document.getElementById("portraitOutputUrl").value = location.origin + "/lhc-events-board?orientation=portrait";
 document.getElementById("slidesLandscapeUrl").value = location.origin + "/lhc-events-board/slides?orientation=landscape";
 document.getElementById("slidesPortraitUrl").value = location.origin + "/lhc-events-board/slides?orientation=portrait";
+document.getElementById("scheduleLandscapeUrl").value = location.origin + "/lhc-events-board/schedule?orientation=landscape";
+document.getElementById("schedulePortraitUrl").value = location.origin + "/lhc-events-board/schedule?orientation=portrait";
 document.getElementById("roomLandscapeUrl").value = location.origin + "/lhc-events-board/room?orientation=landscape";
 document.getElementById("roomPortraitUrl").value = location.origin + "/lhc-events-board/room?orientation=portrait";
 
@@ -332,6 +354,11 @@ function toggleRoomsPanel(){
 
 function toggleEditorPanel(){
   const panel = document.getElementById("editorPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+
+function toggleManageRooms(){
+  const panel = document.getElementById("manageRoomsPanel");
   panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
@@ -610,34 +637,12 @@ function addRoom(room){
   locationInput.type = "text"; locationInput.placeholder = "Executive Meeting Room"; locationInput.value = values.location;
   locationField.append(locationLabel, locationInput);
   fields.append(nameField, locationField);
-  const urls = document.createElement("div");
-  urls.className = "db-room-urls";
-  const landscapeField = document.createElement("div");
-  const landscapeLabel = document.createElement("label");
-  landscapeLabel.textContent = "LANDSCAPE URL";
-  const landscapeInput = document.createElement("input");
-  landscapeInput.type = "text"; landscapeInput.readOnly = true;
-  landscapeField.append(landscapeLabel, landscapeInput);
-  const portraitField = document.createElement("div");
-  const portraitLabel = document.createElement("label");
-  portraitLabel.textContent = "PORTRAIT URL";
-  const portraitInput = document.createElement("input");
-  portraitInput.type = "text"; portraitInput.readOnly = true;
-  portraitField.append(portraitLabel, portraitInput);
-  urls.append(landscapeField, portraitField);
   const remove = document.createElement("button");
   remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
   remove.onclick = () => { row.remove(); refreshRoomOutputSelect(); };
-  const updateUrls = () => {
-    const name = nameInput.value.trim();
-    const suffix = name ? "&room=" + encodeURIComponent(name) : "";
-    landscapeInput.value = location.origin + "/lhc-events-board/room?orientation=landscape" + suffix;
-    portraitInput.value = location.origin + "/lhc-events-board/room?orientation=portrait" + suffix;
-  };
-  nameInput.addEventListener("input", () => { updateUrls(); refreshRoomOutputSelect(); });
-  row.append(fields, urls, remove);
+  nameInput.addEventListener("input", () => { refreshRoomOutputSelect(); });
+  row.append(fields, remove);
   document.getElementById("rooms").appendChild(row);
-  updateUrls();
   refreshRoomOutputSelect();
 }
 
@@ -699,6 +704,8 @@ async function load(){
   icsUrlEdited = false;
   document.getElementById("outlookIcsUrl").value = S.outlookIcsUrl || "";
   document.getElementById("orientation").value = S.orientation || "landscape";
+  document.getElementById("mainOutput").value = S.mainOutput || "board";
+  document.getElementById("outputDesign").value = S.outputDesign || "classic";
   renderRooms();
   refreshRoomOutputSelect();
   loadPhotos();
@@ -866,6 +873,8 @@ function collectSettings(){
       ? document.getElementById("outlookIcsUrl").value.trim()
       : ((S && S.outlookIcsUrl) || ""),
     orientation: document.getElementById("orientation").value,
+    mainOutput: document.getElementById("mainOutput").value || "board",
+    outputDesign: document.getElementById("outputDesign").value || "classic",
     rooms: collectRooms(),
     photoOrder: order,
     photoAnnouncements: announcements

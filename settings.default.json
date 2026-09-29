@@ -16,6 +16,8 @@
   "weatherLon": 120.9750,
   "outlookIcsUrl": "",
   "orientation": "landscape",
+  "mainOutput": "board",
+  "outputDesign": "classic",
   "rooms": [
     {"name": "Convention Hall", "location": "Convention Hall"},
     {"name": "Conference Room 1", "location": "Conference Room 1"},
