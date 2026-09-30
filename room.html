@@ -11,9 +11,9 @@
     --yellow:#2a6b9b; --red:#a9564e;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;min-height:100%;background:var(--bg);color:var(--text)}
-  body{font-family:Segoe UI,Arial,sans-serif;overflow:auto}
-  .room-screen{min-height:100vh;min-height:100dvh;padding:clamp(18px,3.5vmin,48px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(16px,2.5vmin,30px)}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+  body{font-family:Segoe UI,Arial,sans-serif}
+  .room-screen{height:100%;padding:clamp(18px,3.5vmin,48px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(16px,2.5vmin,30px)}
   .room-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;border-bottom:2px solid var(--line);padding-bottom:clamp(14px,2.5vmin,28px)}
   .brand{font-size:clamp(13px,2vmin,22px);font-weight:700;letter-spacing:clamp(2px,.5vmin,6px);color:var(--accent)}
   .eyebrow{margin-top:clamp(8px,1.6vmin,18px);font-size:clamp(11px,1.6vmin,18px);letter-spacing:2px;color:var(--muted)}
@@ -23,7 +23,7 @@
   .date{margin-top:8px;font-size:clamp(14px,2.1vmin,25px);color:var(--muted)}
   .room-main{min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);gap:clamp(14px,2.5vmin,30px)}
   .panel{min-width:0;min-height:0;overflow:auto;border:2px solid var(--line);border-radius:18px;background:linear-gradient(145deg,var(--panel),#e5a06c);padding:clamp(18px,3.5vmin,42px)}
-  .primary{display:flex;flex-direction:column;justify-content:center;min-height:clamp(280px,48vh,600px);position:relative;overflow:hidden}
+  .primary{display:flex;flex-direction:column;justify-content:center;min-height:0;position:relative;overflow:hidden}
   #roomSlides{position:absolute;inset:0;display:none}
   .primary.showing-slides #roomSlides{display:block}
   .primary.showing-slides .meeting-title,
@@ -55,7 +55,7 @@
   .range-value{font-size:clamp(20px,3.2vmin,38px);font-weight:700;color:var(--text);overflow-wrap:anywhere}
   .range-arrow{font-size:clamp(16px,2.2vmin,26px);color:var(--accent)}
   .meta{margin-top:clamp(16px,2.5vmin,28px);font-size:clamp(14px,2.1vmin,24px);color:var(--muted)}
-  .next-panel{display:flex;flex-direction:column;justify-content:center;min-height:clamp(220px,38vh,480px);background:linear-gradient(145deg,var(--panel-2),#a9c9dc)}
+  .next-panel{display:flex;flex-direction:column;justify-content:center;min-height:0;background:linear-gradient(145deg,var(--panel-2),#a9c9dc)}
   .rundown-panel{justify-content:flex-start}
   .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);max-height:clamp(240px,36vh,430px);overflow:auto}
   body.design-split .rundown-list{max-height:clamp(280px,44vh,520px)}
@@ -79,7 +79,7 @@
   .ev-title{font-size:clamp(14px,1.9vmin,21px);font-weight:700;overflow-wrap:anywhere}
   .ev-loc{color:var(--muted);font-size:clamp(11px,1.4vmin,15px);font-weight:700;overflow-wrap:anywhere}
   .upcoming-panel{min-width:0;border:2px solid var(--line);border-radius:18px;background:rgba(255,230,193,.88);padding:clamp(14px,2.2vmin,28px)}
-  .room-message-panel{display:flex;min-height:clamp(110px,16vh,180px);flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .room-message-panel{display:flex;min-height:0;flex-direction:column;align-items:center;justify-content:center;text-align:center}
   .room-status-label{margin-bottom:clamp(6px,1vmin,12px);font-size:clamp(12px,1.7vmin,20px);font-weight:800;letter-spacing:1.5px;color:var(--muted)}
   .room-message-panel.has-meeting{border-color:rgba(47,143,85,.95);box-shadow:0 0 0 2px rgba(47,143,85,.14)}
   .room-message{font-size:clamp(28px,5.5vmin,68px);font-weight:800;letter-spacing:1px;color:var(--accent)}
@@ -93,11 +93,12 @@
   body.portrait .room-header{align-items:flex-start}
   body.portrait .room-main{grid-template-columns:1fr;grid-template-rows:minmax(0,1.2fr) minmax(0,.8fr)}
   body.design-split.portrait .room-main{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);grid-template-rows:minmax(0,1fr)}
-  body.portrait .primary{min-height:360px}
+  body.portrait .primary{min-height:0}
   body.portrait .room-slide .caption{max-width:90%}
-  body.portrait .next-panel{min-height:220px}
+  body.portrait .next-panel{min-height:0}
   @media(max-width:800px){
-    .room-screen{padding:16px;gap:16px}
+    html,body{height:auto;overflow:auto}
+    .room-screen{height:auto;min-height:100vh;min-height:100dvh;padding:16px;gap:16px}
      .room-header{gap:12px}
      .room-name{font-size:clamp(28px,8vw,50px)}
      .clock{font-size:clamp(34px,9vw,60px)}
