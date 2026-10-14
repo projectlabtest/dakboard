@@ -101,6 +101,9 @@
   body:not(.portrait) .left>div:first-child,
   body:not(.portrait) .weather,
   body:not(.portrait) .verse{flex:0 0 auto}
+  body:not(.portrait) .left{gap:clamp(3px,.8vmin,8px);padding-bottom:4px}
+  body:not(.portrait) .weather{font-size:clamp(12px,1.5vmin,19px);padding:clamp(5px,1vmin,10px)}
+  body:not(.portrait) .verse{margin-top:auto}
   body:not(.portrait) #eventsCard{flex:1 1 0;min-height:0;overflow:auto}
   body.portrait .grid{grid-template-columns:1fr;grid-template-rows:minmax(0,46%) minmax(0,1fr) var(--ticker-h)}
   body.portrait .left{display:grid;grid-template-columns:1fr;
