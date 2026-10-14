@@ -411,6 +411,8 @@ async function loadRoomSlides(){
     const response = await fetch("/api/lhc-events-board/photos");
     if(response.ok) photos = await response.json();
   }catch(e){}
+  const brandFile = (settings.brandLogo || "").trim();
+  if(brandFile) photos = photos.filter(src => src.substring(src.lastIndexOf("/") + 1) !== brandFile);
   const porder = (settings.photoOrder && settings.photoOrder.length) ? settings.photoOrder : null;
   if(porder){
     const pos = {};

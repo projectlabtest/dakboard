@@ -337,6 +337,8 @@ async function loadSlides(){
     const r=await fetch("/api/lhc-events-board/photos");
     if(r.ok) photos=await r.json();
   }catch(e){}
+  const brandFile = (S.brandLogo || "").trim();
+  if(brandFile) photos = photos.filter(src => src.substring(src.lastIndexOf("/")+1) !== brandFile);
   // order photos as arranged in the control page (▲▼)
   const porder = (S.photoOrder && S.photoOrder.length) ? S.photoOrder : null;
   if(porder){
