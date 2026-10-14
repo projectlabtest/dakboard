@@ -11,6 +11,10 @@
     --ticker-h:clamp(40px,8vmin,72px);
     --slide-pad:clamp(16px,3.2vmin,48px);
   }
+  body.theme-dark{--bg:linear-gradient(135deg,#0d1f33 0%,#16324e 60%,#1d3f5c 100%);--text:#f2e9d8;--muted:#cfc4a8;
+    --accent:#8fc0e8;--green:#5da87e;--line:#3f7a52}
+  body.theme-dark .ticker{background:rgba(16,30,46,.92);color:#f2e9d8}
+  body.theme-dark .slide-fit{background-color:#060d16}
   html{height:100%}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);
@@ -228,6 +232,7 @@ function isVideoFile(src){
   if(txt !== null) lastSettings = txt;
   scene = sceneParam || "lobby";
   isLobby = (scene !== "main");
+  document.body.classList.toggle("theme-dark", (S.theme || "default") === "dark");
   document.getElementById("ticker-text").textContent =
     isLobby ? (S.lobbyTicker || S.ticker || "Welcome to LIFE HOPE CENTER")
             : (S.ticker || "Welcome to LIFE HOPE CENTER");

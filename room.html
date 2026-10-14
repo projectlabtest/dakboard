@@ -10,6 +10,13 @@
     --muted:#315b7d; --line:#2f8f55; --accent:#1d5687; --success:#3f875f;
     --yellow:#2a6b9b; --red:#a9564e;
   }
+  body.theme-dark{--bg:linear-gradient(135deg,#0d1f33 0%,#16324e 60%,#1d3f5c 100%);--panel:#1c3448;--panel-2:#1a3049;--text:#f2e9d8;
+    --muted:#cfc4a8;--line:#3f7a52;--accent:#8fc0e8;--success:#5da87e;--yellow:#8fc0e8;--red:#d08a80}
+  body.theme-dark .panel{background:linear-gradient(145deg,#1c3448,#14293d)}
+  body.theme-dark .next-panel{background:linear-gradient(145deg,#1a3049,#12283c)}
+  body.theme-dark .upcoming-panel,body.theme-dark .weather-card{background:rgba(30,52,78,.88);color:#f2e9d8}
+  body.theme-dark .verse-card{background:rgba(28,62,48,.85);color:#f2e9d8}
+  body.theme-dark .ticker{background:rgba(16,30,46,.92);color:#f2e9d8}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
   body{font-family:Segoe UI,Arial,sans-serif}
@@ -715,6 +722,7 @@ async function boot(){
   roomConfig = roomQuery ? resolveRoomConfig(roomQuery) : null;
   const brand = brandForRoom(roomConfig);
   document.querySelector(".brand-text").textContent = brand.header;
+  document.body.classList.toggle("theme-dark", ((settings && settings.theme) || "default") === "dark");
   if(settings.brandLogo){
     const bi = document.querySelector(".brand-logo");
     if(bi){ bi.src = "/photos/" + encodeURIComponent(settings.brandLogo); bi.hidden = false; bi.onerror = () => { bi.hidden = true; }; }
