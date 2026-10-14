@@ -423,6 +423,7 @@ async function load(){
       S.lobbyPhotoFit = {};
     }
     if(typeof S.brandLogo !== "string") S.brandLogo = "";
+    if(typeof S.brandName !== "string") S.brandName = "LIFE HOPE CENTER";
   }catch(e){ status("Cannot reach server.", "err"); return; }
   document.getElementById("ticker").value = S.ticker || "";
   document.getElementById("anns").innerHTML = "";
@@ -642,7 +643,8 @@ function collectSettings(){
     lobbyPhotoOrder: lobbyOrder,
     lobbyPhotoAnnouncements: lobbyAnns,
     lobbyPhotoFit: lobbyFit,
-    brandLogo: (typeof S.brandLogo === "string") ? S.brandLogo : ""
+    brandLogo: (typeof S.brandLogo === "string") ? S.brandLogo : "",
+    brandName: (typeof S.brandName === "string" && S.brandName) ? S.brandName : "LIFE HOPE CENTER"
   };
 }
 

@@ -553,6 +553,7 @@ async function boot(){
   if(text !== null) lastSettings = text;
   document.body.classList.toggle("design-split", settings.outputDesign === "split");
   document.getElementById("ticker-text").textContent = settings.ticker || "Welcome to LIFE HOPE CENTER";
+  document.querySelector(".brand-text").textContent = settings.brandName || "LIFE HOPE CENTER";
   if(settings.brandLogo){
     const bi = document.querySelector(".brand-logo");
     if(bi){ bi.src = "/photos/" + encodeURIComponent(settings.brandLogo); bi.hidden = false; bi.onerror = () => { bi.hidden = true; }; }

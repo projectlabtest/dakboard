@@ -132,6 +132,8 @@
 
   <div class="db-card">
     <h2>Display settings</h2>
+    <label>BRAND NAME (shown on all outputs)</label>
+    <input type="text" id="brandName" value="" placeholder="LIFE HOPE CENTER">
     <label>BRAND LOGO (filename sa Photos library — blank kung text lang)</label>
     <input type="text" id="brandLogo" value="" placeholder="logo.png">
     <div class="db-row" style="margin-top:8px">
@@ -755,6 +757,7 @@ async function load(){
   icsUrlEdited = false;
   document.getElementById("outlookIcsUrl").value = S.outlookIcsUrl || "";
   document.getElementById("orientation").value = S.orientation || "landscape";
+  document.getElementById("brandName").value = S.brandName || "LIFE HOPE CENTER";
   document.getElementById("brandLogo").value = S.brandLogo || "";
   document.getElementById("mainOutput").value = S.mainOutput || "board";
   document.getElementById("outputDesign").value = S.outputDesign || "classic";
@@ -1229,6 +1232,7 @@ function collectSettings(){
       ? document.getElementById("outlookIcsUrl").value.trim()
       : ((S && S.outlookIcsUrl) || ""),
     orientation: document.getElementById("orientation").value,
+    brandName: document.getElementById("brandName").value.trim() || "LIFE HOPE CENTER",
     brandLogo: document.getElementById("brandLogo").value.trim(),
     mainOutput: document.getElementById("mainOutput").value || "board",
     outputDesign: document.getElementById("outputDesign").value || "classic",
