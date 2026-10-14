@@ -871,13 +871,13 @@ async function loadPhotos(){
       fitSelect.className = "db-photo-fit";
       const fitContain = document.createElement("option");
       fitContain.value = "contain";
-      fitContain.textContent = "Show full (default)";
+      fitContain.textContent = "Show full";
       const fitCover = document.createElement("option");
       fitCover.value = "cover";
-      fitCover.textContent = "Fill screen";
+      fitCover.textContent = "Fill screen (default)";
       fitSelect.appendChild(fitContain);
       fitSelect.appendChild(fitCover);
-      fitSelect.value = S.photoFit[name] === "cover" ? "cover" : "contain";
+      fitSelect.value = S.photoFit[name] === "contain" ? "contain" : "cover";
       fitSelect.onchange = () => setPhotoFit(name, fitSelect.value);
       d.appendChild(fitLabel); d.appendChild(fitSelect);
     }
@@ -923,8 +923,7 @@ async function setPhotoAnnouncement(name, value){
 
 async function setPhotoFit(name, value){
   const out = collectSettings();
-  if(value === "contain") delete out.photoFit[name];
-  else out.photoFit[name] = value;
+  out.photoFit[name] = value;
   if(await postSettings(out)){
     applySavedSettings(out);
     status("Picture fit saved — all TV outputs update automatically.", "ok");
@@ -1068,13 +1067,13 @@ function lobbyThumb(name, idx, total, anns, dimmed){
       fitSelect.className = "db-photo-fit";
       const fitContain = document.createElement("option");
       fitContain.value = "contain";
-      fitContain.textContent = "Show full (default)";
+      fitContain.textContent = "Show full";
       const fitCover = document.createElement("option");
       fitCover.value = "cover";
-      fitCover.textContent = "Fill screen";
+      fitCover.textContent = "Fill screen (default)";
       fitSelect.appendChild(fitContain);
       fitSelect.appendChild(fitCover);
-      fitSelect.value = S.lobbyPhotoFit[name] === "cover" ? "cover" : "contain";
+      fitSelect.value = S.lobbyPhotoFit[name] === "contain" ? "contain" : "cover";
       fitSelect.onchange = () => setLobbyPhotoFit(name, fitSelect.value);
       d.appendChild(fitLabel); d.appendChild(fitSelect);
     }
@@ -1120,8 +1119,7 @@ async function setLobbyPhotoAnnouncement(name, value){
 
 async function setLobbyPhotoFit(name, value){
   const out = collectSettings();
-  if(value === "contain") delete out.lobbyPhotoFit[name];
-  else out.lobbyPhotoFit[name] = value;
+  out.lobbyPhotoFit[name] = value;
   if(await postSettings(out)){
     applySavedSettings(out);
     status("Lobby picture fit saved — lobby TV updates automatically.", "ok");

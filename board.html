@@ -375,7 +375,7 @@ async function loadSlides(){
     const ann=(Number.isInteger(ai) && ai>=0 && ai<anns.length) ? anns[ai] : null;
     if(ann) usedAnns.add(ai);
     return {img:src,title:ann?(ann.title||""):"",sub:ann?(ann.sub||""):"",
-      fit:((S.photoFit || {})[name]) === "cover"};
+      cover:((S.photoFit || {})[name]) !== "contain"};
   });
   anns.forEach((a,i)=>{
     if(!usedAnns.has(i)) slides.push({cls:grads[i%grads.length],title:(a.title||""),sub:(a.sub||"")});
@@ -391,7 +391,7 @@ async function loadSlides(){
         d.appendChild(video);
       }else{
         d.style.setProperty("--photo", "url('"+s.img+"')");
-        if(s.fit) d.classList.add("slide-cover");
+        if(s.cover) d.classList.add("slide-cover");
         else d.classList.add("slide-fit");
         const photo=document.createElement("div");
         photo.className="slide-photo";
