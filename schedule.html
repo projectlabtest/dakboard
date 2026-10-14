@@ -70,6 +70,7 @@
   .ev.today b{color:var(--muted)}
   .ev .loc{color:var(--muted);font-size:clamp(10px,1.3vmin,14px);font-weight:700}
   .ev-today{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:var(--success);color:#fff;font-size:clamp(7px,.9vmin,10px)}
+  .ev-name{font-weight:800;color:#1e3f5c;font-size:clamp(14px,1.9vmin,21px);overflow-wrap:anywhere}
   .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);max-height:clamp(240px,36vh,430px);overflow:auto}
   body.design-split .rundown-list{max-height:clamp(280px,44vh,560px)}
   .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
@@ -314,7 +315,10 @@ function renderRundownClassic(events){
     }
     d.appendChild(head);
     d.appendChild(document.createElement("br"));
-    d.appendChild(document.createTextNode(event.title || "Untitled meeting"));
+    const t = document.createElement("div");
+    t.className = "ev-name";
+    t.textContent = event.title || "Untitled meeting";
+    d.appendChild(t);
     if(event.location){
       d.appendChild(document.createElement("br"));
       const loc = document.createElement("span");
