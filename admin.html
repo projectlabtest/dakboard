@@ -151,6 +151,11 @@
       <option value="split">Side by side — slideshow + rundown</option>
     </select>
     <p style="font-size:12px;color:#777">Side by side: slideshow sa kaliwa, rundown sa kanan sa portrait TVs.</p>
+    <label>COLOR THEME (all outputs)</label>
+    <select id="theme" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
+      <option value="default">Default — cream</option>
+      <option value="dark">Dark</option>
+    </select>
     <label>SLIDE DURATION (seconds, 3–120)</label>
     <input type="number" id="slideSeconds" min="3" max="120" value="10">
     <label>WEATHER LATITUDE</label>
@@ -761,6 +766,7 @@ async function load(){
   document.getElementById("brandLogo").value = S.brandLogo || "";
   document.getElementById("mainOutput").value = S.mainOutput || "board";
   document.getElementById("outputDesign").value = S.outputDesign || "classic";
+  document.getElementById("theme").value = S.theme || "default";
   renderRooms();
   refreshRoomOutputSelect();
   loadPhotos();
@@ -1236,6 +1242,7 @@ function collectSettings(){
     brandLogo: document.getElementById("brandLogo").value.trim(),
     mainOutput: document.getElementById("mainOutput").value || "board",
     outputDesign: document.getElementById("outputDesign").value || "classic",
+    theme: document.getElementById("theme").value || "default",
     rooms: collectRooms(),
     photoOrder: order,
     photoAnnouncements: announcements,

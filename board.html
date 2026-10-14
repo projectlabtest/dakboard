@@ -14,6 +14,15 @@
     --ticker-h:clamp(40px,8vmin,72px);
     --slide-pad:clamp(16px,3.2vmin,48px);
   }
+  body.theme-dark{--bg:linear-gradient(135deg,#0d1f33 0%,#16324e 60%,#1d3f5c 100%);--card:#1c3448;--text:#f2e9d8;--muted:#cfc4a8;
+    --accent:#8fc0e8;--green:#5da87e;--yellow:#8fc0e8;--line:#3f7a52;--rundown-text:#e8dcc2}
+  body.theme-dark .left{background:linear-gradient(180deg,rgba(24,44,68,.96),rgba(16,30,46,.96))}
+  body.theme-dark .weather{background:rgba(30,52,78,.78);color:#f2e9d8}
+  body.theme-dark .verse{background:rgba(28,62,48,.8);color:#f2e9d8}
+  body.theme-dark .cal{background:rgba(30,52,78,.78)}
+  body.theme-dark .ticker{background:rgba(16,30,46,.92)}
+  body.theme-dark .slide-fit{background-color:#060d16}
+  body.theme-dark .events-date,body.theme-dark .ev,body.theme-dark .ev b,body.theme-dark .ev.today b,body.theme-dark .ev .loc,body.theme-dark .ev-name{color:#f2e9d8}
   html{height:100%}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);
@@ -179,6 +188,7 @@ const CONFIG = {
   photoFit: {},
   brandName: "LIFE HOPE CENTER",
   brandLogo: "",
+  theme: "default",
 };
 /* Live settings (merged from server on boot) */
 let S = JSON.parse(JSON.stringify(CONFIG));
@@ -574,6 +584,7 @@ async function loadWeather(){
   document.body.classList.toggle("portrait", outputOrientation === "portrait");
   document.getElementById("ticker-text").textContent = S.ticker || CONFIG.ticker;
   document.querySelector(".brand-text").textContent = S.brandName || "LIFE HOPE CENTER";
+  document.body.classList.toggle("theme-dark", (S.theme || "default") === "dark");
   if(S.brandLogo){
     const bi = document.querySelector(".brand-logo");
     if(bi){ bi.src = "/photos/" + encodeURIComponent(S.brandLogo); bi.hidden = false; bi.onerror = () => { bi.hidden = true; }; }
