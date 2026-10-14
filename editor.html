@@ -448,7 +448,7 @@ async function loadPhotos(){
     box.innerHTML = "<p style='font-size:13px;color:#777'>No photos yet — upload above (up to 10 at once).</p>";
     return;
   }
-  const order = orderedNames(currentPhotos);
+  const order = orderedNames(currentPhotos).filter(n => n !== (S.brandLogo || ""));
   order.forEach((name, idx) => {
     const d = document.createElement("div");
     d.className = "db-thumb";
