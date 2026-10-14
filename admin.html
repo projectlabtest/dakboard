@@ -132,6 +132,8 @@
 
   <div class="db-card">
     <h2>Display settings</h2>
+    <label>BRAND LOGO (filename sa Photos library — blank kung text lang)</label>
+    <input type="text" id="brandLogo" value="" placeholder="logo.png">
     <label>MAIN OUTPUT (shown at the main URL)</label>
     <select id="mainOutput" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
       <option value="board">Board — full display</option>
@@ -749,6 +751,7 @@ async function load(){
   icsUrlEdited = false;
   document.getElementById("outlookIcsUrl").value = S.outlookIcsUrl || "";
   document.getElementById("orientation").value = S.orientation || "landscape";
+  document.getElementById("brandLogo").value = S.brandLogo || "";
   document.getElementById("mainOutput").value = S.mainOutput || "board";
   document.getElementById("outputDesign").value = S.outputDesign || "classic";
   renderRooms();
@@ -1222,6 +1225,7 @@ function collectSettings(){
       ? document.getElementById("outlookIcsUrl").value.trim()
       : ((S && S.outlookIcsUrl) || ""),
     orientation: document.getElementById("orientation").value,
+    brandLogo: document.getElementById("brandLogo").value.trim(),
     mainOutput: document.getElementById("mainOutput").value || "board",
     outputDesign: document.getElementById("outputDesign").value || "classic",
     rooms: collectRooms(),
