@@ -111,7 +111,7 @@
       <input type="file" id="photoFile" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm" multiple>
       <button type="button" class="db-btn" onclick="upload()">Upload</button>
     </div>
-    <p style="font-size:12px;color:#777;margin:0 0 8px">Photos o maikling highlight video (MP4/WebM, hanggang ~24MB bawat file, hanggang 10 sabay-sabay). Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
+    <p style="font-size:12px;color:#777;margin:0 0 8px">Photos o maikling highlight video (MP4/WebM, hanggang ~70MB bawat file, hanggang 10 sabay-sabay). Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
     <div class="db-thumbs" id="thumbs"></div>
   </div>
 </div>
@@ -703,8 +703,8 @@ function upload(){
   const files = Array.from(document.getElementById("photoFile").files || []);
   if(!files.length){ status("Choose photos first.", "err"); return; }
   if(files.length > 10){ status("Maximum 10 photos at a time.", "err"); return; }
-  const tooBig = files.find(f => f.size > 24 * 1024 * 1024);
-  if(tooBig){ status(tooBig.name + " is too large — keep each file under ~24MB.", "err"); return; }
+  const tooBig = files.find(f => f.size > 70 * 1024 * 1024);
+  if(tooBig){ status(tooBig.name + " is too large — keep each file under ~70MB.", "err"); return; }
   let i = 0, ok = 0;
   status("Uploading 1/" + files.length + "...", "");
   async function next(){
