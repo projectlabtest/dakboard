@@ -77,6 +77,7 @@
   .ev.today{background:rgba(29,86,135,.12);border-left:3px solid var(--green);padding-left:7px;margin:3px 0}
   .ev.today b{color:var(--rundown-text)}
   .ev-today{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:var(--green);color:var(--rundown-text);font-size:clamp(7px,.9vmin,10px)}
+  .ev-name{font-weight:800;color:#1e3f5c;font-size:clamp(13px,1.8vmin,19px);overflow-wrap:anywhere}
   .room-info{border:1px solid var(--line);border-radius:8px;padding:clamp(6px,1.2vmin,12px);margin-bottom:8px;background:rgba(255,230,193,.78)}
   .room-kicker{font-size:clamp(9px,1.25vmin,14px);color:var(--rundown-text);font-weight:700;letter-spacing:1px}
   .room-name{font-size:clamp(18px,2.7vmin,31px);font-weight:800;color:var(--rundown-text);margin:2px 0 5px}
@@ -495,7 +496,10 @@ function renderEvents(){
     }
     d.appendChild(head);
     d.appendChild(document.createElement("br"));
-    d.appendChild(document.createTextNode(e.title || ""));
+    const t = document.createElement("div");
+    t.className = "ev-name";
+    t.textContent = e.title || "";
+    d.appendChild(t);
     if(e.location){
       d.appendChild(document.createElement("br"));
       const loc = document.createElement("span");
