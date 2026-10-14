@@ -410,6 +410,18 @@ async function load(){
     if(!S.photoAnnouncements || typeof S.photoAnnouncements !== "object" || Array.isArray(S.photoAnnouncements)){
       S.photoAnnouncements = {};
     }
+    if(!S.photoFit || typeof S.photoFit !== "object" || Array.isArray(S.photoFit)){
+      S.photoFit = {};
+    }
+    if(typeof S.lobbyTicker !== "string") S.lobbyTicker = "";
+    if(!Array.isArray(S.lobbyAnnouncements)) S.lobbyAnnouncements = [];
+    if(!Array.isArray(S.lobbyPhotoOrder)) S.lobbyPhotoOrder = [];
+    if(!S.lobbyPhotoAnnouncements || typeof S.lobbyPhotoAnnouncements !== "object" || Array.isArray(S.lobbyPhotoAnnouncements)){
+      S.lobbyPhotoAnnouncements = {};
+    }
+    if(!S.lobbyPhotoFit || typeof S.lobbyPhotoFit !== "object" || Array.isArray(S.lobbyPhotoFit)){
+      S.lobbyPhotoFit = {};
+    }
   }catch(e){ status("Cannot reach server.", "err"); return; }
   document.getElementById("ticker").value = S.ticker || "";
   document.getElementById("anns").innerHTML = "";
@@ -509,6 +521,23 @@ async function loadPhotos(){
     annSelect.value = S.photoAnnouncements[name] == null ? "" : String(S.photoAnnouncements[name]);
     annSelect.onchange = () => setPhotoAnnouncement(name, annSelect.value);
     d.appendChild(annLabel); d.appendChild(annSelect);
+    if(!isVideoFile(name)){
+      const fitLabel = document.createElement("label");
+      fitLabel.textContent = "PICTURE FIT";
+      const fitSelect = document.createElement("select");
+      fitSelect.className = "db-photo-fit";
+      const fitContain = document.createElement("option");
+      fitContain.value = "contain";
+      fitContain.textContent = "Show full (default)";
+      const fitCover = document.createElement("option");
+      fitCover.value = "cover";
+      fitCover.textContent = "Fill screen";
+      fitSelect.appendChild(fitContain);
+      fitSelect.appendChild(fitCover);
+      fitSelect.value = S.photoFit[name] === "cover" ? "cover" : "contain";
+      fitSelect.onchange = () => setPhotoFit(name, fitSelect.value);
+      d.appendChild(fitLabel); d.appendChild(fitSelect);
+    }
     const row = document.createElement("div");
     row.style.display = "flex"; row.style.gap = "4px"; row.style.justifyContent = "center";
     const up = document.createElement("button");
@@ -549,6 +578,19 @@ async function setPhotoAnnouncement(name, value){
   }
 }
 
+async function setPhotoFit(name, value){
+  const out = collectSettings();
+  if(value === "contain") delete out.photoFit[name];
+  else out.photoFit[name] = value;
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    status("Picture fit saved — all TV outputs update automatically.", "ok");
+  }else{
+    status("Picture fit save failed.", "err");
+    loadPhotos();
+  }
+}
+
 function collectSettings(){
   const anns = [];
   document.querySelectorAll("#anns .db-row").forEach(row => {
@@ -571,13 +613,34 @@ function collectSettings(){
     const keep = existing.size ? existing.has(name) : isListed;
     if(!keep) delete announcements[name];
   });
+  const photoFit = Object.assign({}, S.photoFit || {});
+  Object.keys(photoFit).forEach(name => {
+    const isListed = (S.photoOrder || []).indexOf(name) >= 0;
+    const keep = existing.size ? existing.has(name) : isListed;
+    if(!keep) delete photoFit[name];
+  });
+  const lobbyOrder = (S.lobbyPhotoOrder || []).filter(n => !existing.size || existing.has(n));
+  const lobbyAnns = Object.assign({}, S.lobbyPhotoAnnouncements || {});
+  Object.keys(lobbyAnns).forEach(name => {
+    if(existing.size && !existing.has(name)) delete lobbyAnns[name];
+  });
+  const lobbyFit = Object.assign({}, S.lobbyPhotoFit || {});
+  Object.keys(lobbyFit).forEach(name => {
+    if(existing.size && !existing.has(name)) delete lobbyFit[name];
+  });
   return {
     ticker: document.getElementById("ticker").value.trim(),
     announcements: anns.length ? anns : (S.announcements || []),
     verses: verses.length ? verses : (S.verses || []),
     rooms: collectRooms(),
     photoOrder: order,
-    photoAnnouncements: announcements
+    photoAnnouncements: announcements,
+    photoFit: photoFit,
+    lobbyTicker: (typeof S.lobbyTicker === "string") ? S.lobbyTicker : "",
+    lobbyAnnouncements: Array.isArray(S.lobbyAnnouncements) ? S.lobbyAnnouncements : [],
+    lobbyPhotoOrder: lobbyOrder,
+    lobbyPhotoAnnouncements: lobbyAnns,
+    lobbyPhotoFit: lobbyFit
   };
 }
 

@@ -28,7 +28,17 @@
   .primary.showing-slides #roomSlides{display:block}
   .room-slide{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:flex-start;
     padding:clamp(18px,3.5vmin,42px);opacity:0;transition:opacity 1s;
-    background-image:var(--photo);background-size:cover;background-position:center}
+    background-image:var(--photo);background-size:cover;background-position:center;background-color:#000}
+  .room-slide.room-slide-fit{background-image:none}
+  .room-slide.room-slide-cover{background-color:transparent}
+  .room-slide::before{content:"";display:block;position:absolute;inset:-6%;background-image:var(--photo);
+    background-size:cover;background-position:center;filter:blur(clamp(12px,2.2vmin,28px));
+    opacity:.65;z-index:0;pointer-events:none}
+  .room-slide.room-slide-cover::before{display:none}
+  .room-slide .room-slide-photo{display:block;position:absolute;inset:0;background-image:var(--photo);
+    background-size:contain;background-repeat:no-repeat;background-position:center;
+    z-index:1;pointer-events:none}
+  .room-slide.room-slide-cover .room-slide-photo{display:none}
   .room-slide.active{opacity:1}
   .room-slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none}
   body.portrait .room-slide video{object-fit:contain}
@@ -398,7 +408,8 @@ async function loadRoomSlides(){
     const ai = Number(photoAnns[name]);
     const ann = (Number.isInteger(ai) && ai >= 0 && ai < anns.length) ? anns[ai] : null;
     if(ann) usedAnns.add(ai);
-    return {img:src, title:ann ? (ann.title || "") : "", sub:ann ? (ann.sub || "") : ""};
+    return {img:src, title:ann ? (ann.title || "") : "", sub:ann ? (ann.sub || "") : "",
+      fit:((settings.photoFit || {})[name]) === "cover"};
   });
   anns.forEach((a, i) => {
     if(!usedAnns.has(i)) slides.push({cls:grads[i % grads.length], title:(a.title || ""), sub:(a.sub || "")});
@@ -414,6 +425,11 @@ async function loadRoomSlides(){
         d.appendChild(video);
       }else{
         d.style.setProperty("--photo", "url('" + s.img + "')");
+        if(s.fit) d.classList.add("room-slide-cover");
+        else d.classList.add("room-slide-fit");
+        const photo = document.createElement("div");
+        photo.className = "room-slide-photo";
+        d.appendChild(photo);
       }
     }
     else d.classList.add(s.cls);

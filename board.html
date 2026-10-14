@@ -37,11 +37,16 @@
     justify-content:flex-start;padding:var(--slide-pad);opacity:0;
     transition:opacity 1s;background-image:var(--photo);background-size:cover;
     background-position:center;isolation:isolate}
+  .slide-fit{background-image:none;background-color:#0f2740}
   .slide.active{opacity:1}
-  .slide::before{content:"";display:none;position:absolute;inset:-6%;background-image:var(--photo);
+  .slide::before{content:"";display:block;position:absolute;inset:-6%;background-image:var(--photo);
     background-size:cover;background-position:center;filter:blur(clamp(12px,2.2vmin,28px));
     opacity:.65;z-index:0;pointer-events:none}
-  .slide .slide-photo{display:none}
+  .slide.slide-cover::before{display:none}
+  .slide .slide-photo{display:block;position:absolute;inset:0;background-image:var(--photo);
+    background-size:contain;background-repeat:no-repeat;background-position:center;
+    z-index:1;pointer-events:none}
+  .slide.slide-cover .slide-photo{display:none}
   .slide video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none}
   body.portrait .slide video{object-fit:contain}
   .slide .caption{position:relative;z-index:2;background:rgba(23,59,99,.82);border:2px solid var(--line);padding:clamp(10px,1.8vmin,24px);
@@ -169,6 +174,7 @@ const CONFIG = {
    outlookIcsUrl: "",
   photoOrder: [],
   photoAnnouncements: {},
+  photoFit: {},
 };
 /* Live settings (merged from server on boot) */
 let S = JSON.parse(JSON.stringify(CONFIG));
@@ -349,7 +355,8 @@ async function loadSlides(){
     const ai=Number(photoAnns[name]);
     const ann=(Number.isInteger(ai) && ai>=0 && ai<anns.length) ? anns[ai] : null;
     if(ann) usedAnns.add(ai);
-    return {img:src,title:ann?(ann.title||""):"",sub:ann?(ann.sub||""):""};
+    return {img:src,title:ann?(ann.title||""):"",sub:ann?(ann.sub||""):"",
+      fit:((S.photoFit || {})[name]) === "cover"};
   });
   anns.forEach((a,i)=>{
     if(!usedAnns.has(i)) slides.push({cls:grads[i%grads.length],title:(a.title||""),sub:(a.sub||"")});
@@ -365,6 +372,8 @@ async function loadSlides(){
         d.appendChild(video);
       }else{
         d.style.setProperty("--photo", "url('"+s.img+"')");
+        if(s.fit) d.classList.add("slide-cover");
+        else d.classList.add("slide-fit");
         const photo=document.createElement("div");
         photo.className="slide-photo";
         d.appendChild(photo);
