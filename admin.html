@@ -134,6 +134,10 @@
     <h2>Display settings</h2>
     <label>BRAND LOGO (filename sa Photos library — blank kung text lang)</label>
     <input type="text" id="brandLogo" value="" placeholder="logo.png">
+    <div class="db-row" style="margin-top:8px">
+      <input type="file" id="brandLogoFile" accept=".jpg,.jpeg,.png,.webp,.gif">
+      <button type="button" class="db-btn sec" onclick="uploadBrandLogo()">Upload logo</button>
+    </div>
     <label>MAIN OUTPUT (shown at the main URL)</label>
     <select id="mainOutput" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
       <option value="board">Board — full display</option>
@@ -1300,6 +1304,37 @@ async function dropPhoto(fromName, targetName, after){
   dragPhotoName = null;
   if(await postSettings(out)){ applySavedSettings(out); status("Photo order saved — all TV outputs update automatically within about 2 seconds.", "ok"); loadPhotos(); }
   else status("Save failed.", "err");
+}
+
+async function uploadBrandLogo(){
+  const input = document.getElementById("brandLogoFile");
+  const files = Array.from((input && input.files) || []);
+  if(!files.length){ status("Choose a logo file first.", "err"); return; }
+  const f = files[0];
+  if(f.size > 70 * 1024 * 1024){ status(f.name + " is too large — keep it under ~70MB.", "err"); return; }
+  status("Uploading logo: " + f.name + "...", "");
+  const rd = new FileReader();
+  rd.onload = async () => {
+    try{
+      const r = await fetch("/api/lhc-events-board/photos/upload", {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify({filename: f.name, data: rd.result})});
+      if(checkAuthResponse(r)) return;
+      const j = await r.json().catch(() => ({}));
+      if(r.ok && j.file){
+        document.getElementById("brandLogo").value = j.file;
+        input.value = "";
+        const out = collectSettings();
+        if(await postSettings(out)){
+          applySavedSettings(out);
+          status("Logo uploaded — all outputs update automatically.", "ok");
+          loadPhotos(); loadLobbyPhotos();
+        }else status("Logo uploaded but settings save failed — press SAVE.", "err");
+      }else status("Logo upload failed: " + (j.error || r.status), "err");
+    }catch(e){ status("Cannot reach server.", "err"); }
+  };
+  rd.onerror = () => { status("Cannot read " + f.name + ".", "err"); };
+  rd.readAsDataURL(f);
 }
 
 function upload(){
