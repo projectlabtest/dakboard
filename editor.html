@@ -422,6 +422,7 @@ async function load(){
     if(!S.lobbyPhotoFit || typeof S.lobbyPhotoFit !== "object" || Array.isArray(S.lobbyPhotoFit)){
       S.lobbyPhotoFit = {};
     }
+    if(typeof S.brandLogo !== "string") S.brandLogo = "";
   }catch(e){ status("Cannot reach server.", "err"); return; }
   document.getElementById("ticker").value = S.ticker || "";
   document.getElementById("anns").innerHTML = "";
@@ -640,7 +641,8 @@ function collectSettings(){
     lobbyAnnouncements: Array.isArray(S.lobbyAnnouncements) ? S.lobbyAnnouncements : [],
     lobbyPhotoOrder: lobbyOrder,
     lobbyPhotoAnnouncements: lobbyAnns,
-    lobbyPhotoFit: lobbyFit
+    lobbyPhotoFit: lobbyFit,
+    brandLogo: (typeof S.brandLogo === "string") ? S.brandLogo : ""
   };
 }
 

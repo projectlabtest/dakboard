@@ -15,7 +15,8 @@
   body{font-family:Segoe UI,Arial,sans-serif;overflow:auto}
   .room-screen{min-height:100vh;min-height:100dvh;padding:clamp(18px,3.5vmin,48px);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(16px,2.5vmin,30px)}
   .room-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;border-bottom:2px solid var(--line);padding-bottom:clamp(14px,2.5vmin,28px)}
-  .brand{font-size:clamp(13px,2vmin,22px);font-weight:700;letter-spacing:clamp(2px,.5vmin,6px);color:var(--accent)}
+  .brand{display:flex;align-items:center;gap:clamp(8px,1.5vmin,18px);font-size:clamp(22px,3.2vmin,42px);font-weight:800;letter-spacing:clamp(2px,.5vmin,6px);color:var(--accent)}
+  .brand-logo{height:clamp(36px,6vmin,68px);width:auto;object-fit:contain}
   .eyebrow{margin-top:clamp(8px,1.6vmin,18px);font-size:clamp(11px,1.6vmin,18px);letter-spacing:2px;color:var(--muted)}
   .room-name{margin-top:4px;font-size:clamp(30px,6vmin,72px);line-height:1.05;color:var(--text)}
   .time-block{text-align:right;white-space:nowrap}
@@ -141,7 +142,7 @@
 <div class="room-screen">
   <header class="room-header">
     <div>
-      <div class="brand">LIFE HOPE CENTER</div>
+      <div class="brand"><img class="brand-logo" alt="" hidden><span class="brand-text">LIFE HOPE CENTER</span></div>
       <div class="eyebrow">EVENT SCHEDULE</div>
     </div>
     <div class="time-block">
@@ -550,6 +551,10 @@ async function boot(){
   if(text !== null) lastSettings = text;
   document.body.classList.toggle("design-split", settings.outputDesign === "split");
   document.getElementById("ticker-text").textContent = settings.ticker || "Welcome to LIFE HOPE CENTER";
+  if(settings.brandLogo){
+    const bi = document.querySelector(".brand-logo");
+    if(bi){ bi.src = "/photos/" + encodeURIComponent(settings.brandLogo); bi.hidden = false; bi.onerror = () => { bi.hidden = true; }; }
+  }
   verse();
   setInterval(verse, 30000);
   loadWeather();
