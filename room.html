@@ -267,7 +267,8 @@ function resolveRoomConfig(value){
 function brandForRoom(room){
   const text = ((room && room.name) || "") + " " + ((room && room.location) || "");
   if(/ssd/i.test(text)) return {header:"SOUTHERN ASIA-PACIFIC DIVISION", title:"Southern Asia-Pacific Division — Room Display"};
-  return {header:"LIFE HOPE CENTER", title:"LIFE HOPE CENTER — Room Display"};
+  const name = (typeof settings !== "undefined" && settings.brandName) || "LIFE HOPE CENTER";
+  return {header:name, title:name + " — Room Display"};
 }
 
 function eventStatus(event){

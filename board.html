@@ -177,6 +177,7 @@ const CONFIG = {
   photoOrder: [],
   photoAnnouncements: {},
   photoFit: {},
+  brandName: "LIFE HOPE CENTER",
   brandLogo: "",
 };
 /* Live settings (merged from server on boot) */
@@ -572,6 +573,7 @@ async function loadWeather(){
     ? queryOrientation : S.orientation;
   document.body.classList.toggle("portrait", outputOrientation === "portrait");
   document.getElementById("ticker-text").textContent = S.ticker || CONFIG.ticker;
+  document.querySelector(".brand-text").textContent = S.brandName || "LIFE HOPE CENTER";
   if(S.brandLogo){
     const bi = document.querySelector(".brand-logo");
     if(bi){ bi.src = "/photos/" + encodeURIComponent(S.brandLogo); bi.hidden = false; bi.onerror = () => { bi.hidden = true; }; }
