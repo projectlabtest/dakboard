@@ -108,10 +108,12 @@
   .room-message.available{color:var(--accent)}
   .room-message-detail{margin-top:8px;font-size:clamp(15px,2.2vmin,26px);font-weight:700;color:var(--text)}
   .empty{padding:clamp(12px,2vmin,24px) 0;color:var(--muted);font-size:clamp(12px,1.7vmin,20px)}
-  .info-row{display:grid;grid-template-columns:minmax(260px,.65fr) minmax(0,1fr);gap:clamp(4px,1vmin,10px)}
+  .info-row{display:grid;grid-template-columns:1fr;gap:clamp(4px,1vmin,10px)}
   .weather-card{display:flex;align-items:center;min-width:0;border:2px solid var(--line);border-radius:18px;
     background:rgba(255,230,193,.88);padding:clamp(8px,1.2vmin,14px);
     font-size:clamp(12px,1.6vmin,19px);font-weight:700;overflow-wrap:anywhere}
+  .time-block .weather-card{width:max-content;margin:8px 0 0 auto;border-width:1px;border-radius:999px;
+    padding:clamp(3px,.5vmin,6px) clamp(9px,1.2vmin,14px);font-size:clamp(11px,1.35vmin,15px)}
   .verse-card{min-width:0;border:2px solid var(--line);border-left:6px solid var(--success);border-radius:18px;
     background:rgba(185,214,183,.78);padding:clamp(8px,1.2vmin,14px);
     font-size:clamp(13px,1.8vmin,20px);font-style:italic;overflow-wrap:anywhere}
@@ -129,7 +131,7 @@
   body.portrait .room-slide .caption{max-width:90%}
   body.portrait .next-panel{min-height:220px}
   body.portrait .info-row{grid-template-columns:1fr}
-  body.design-split.portrait .info-row{grid-template-columns:minmax(260px,.65fr) minmax(0,1fr)}
+  body.design-split.portrait .info-row{grid-template-columns:1fr}
   @media(max-width:800px){
     .room-screen{padding:16px;gap:16px}
      .room-header{gap:12px}
@@ -150,11 +152,11 @@
   <header class="room-header">
     <div>
       <div class="brand"><img class="brand-logo" alt="" hidden><span class="brand-text">LIFE HOPE CENTER</span></div>
-      <div class="eyebrow">EVENT SCHEDULE</div>
     </div>
     <div class="time-block">
       <div class="clock" id="clock">--:--</div>
       <div class="date" id="date">...</div>
+      <div class="weather-card" id="weather">⏳ Loading weather...</div>
     </div>
   </header>
 
@@ -173,7 +175,6 @@
   </main>
 
   <section class="info-row">
-    <div class="weather-card" id="weather">⏳ Loading weather...</div>
     <div class="verse-card"><span id="verse-text">...</span><b id="verse-ref"></b></div>
   </section>
 
