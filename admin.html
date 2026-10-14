@@ -176,6 +176,10 @@
     <input type="text" id="slidesLandscapeUrl" readonly onclick="this.select()">
     <label>SLIDES OUTPUT URL — PORTRAIT (slides + running text only)</label>
     <input type="text" id="slidesPortraitUrl" readonly onclick="this.select()">
+    <label>LOBBY SLIDES URL — LANDSCAPE (lobby slideshow only)</label>
+    <input type="text" id="lobbySlidesLandscapeUrl" readonly onclick="this.select()">
+    <label>LOBBY SLIDES URL — PORTRAIT (lobby slideshow only)</label>
+    <input type="text" id="lobbySlidesPortraitUrl" readonly onclick="this.select()">
     <label>SCHEDULE OUTPUT URL — LANDSCAPE (slideshow + event rundown, no room status)</label>
     <input type="text" id="scheduleLandscapeUrl" readonly onclick="this.select()">
     <label>SCHEDULE OUTPUT URL — PORTRAIT (slideshow + event rundown, no room status)</label>
@@ -209,6 +213,19 @@
     <p style="font-size:12px;color:#777;margin:0 0 8px">Photos o maikling highlight video (MP4/WebM, hanggang ~24MB bawat file, hanggang 10 sabay-sabay). Sa bawat photo, pumili ng “Photo only” o isang announcement; ang hindi assigned na announcement ay magiging hiwalay na slide.</p>
     <div class="db-thumbs" id="thumbs"></div>
   </div>
+
+  <div class="db-card">
+    <h2>Lobby slideshow (lobby TV only)</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 8px">Sariling slideshow para sa lobby — hindi nakakaapekto sa main board. Mag-upload sa Photos panel sa itaas (shared library), tapos piliin dito kung alin ang kasama sa lobby.</p>
+    <label>LOBBY TICKER (running text)</label>
+    <textarea id="lobbyTicker" rows="2"></textarea>
+    <label>LOBBY ANNOUNCEMENTS (isang announcement kada linya: Title | Sub)</label>
+    <textarea id="lobbyAnns" rows="4"></textarea>
+    <div class="db-row" style="margin-top:8px">
+      <button type="button" class="db-btn" onclick="saveLobby()">SAVE LOBBY — update the lobby TV</button>
+    </div>
+    <div class="db-thumbs" id="lobbyThumbs"></div>
+  </div>
 </div>
 
 <script>
@@ -232,6 +249,8 @@ function applyOutputUrls(){
   document.getElementById("portraitOutputUrl").value = SERVER_BASE + "/lhc-events-board?orientation=portrait";
   document.getElementById("slidesLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=landscape";
   document.getElementById("slidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=portrait";
+  document.getElementById("lobbySlidesLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/slides?scene=lobby&orientation=landscape";
+  document.getElementById("lobbySlidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?scene=lobby&orientation=portrait";
   document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=landscape";
   document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait";
   updateRoomOutputUrls();
@@ -707,6 +726,18 @@ async function load(){
     if(!S.photoAnnouncements || typeof S.photoAnnouncements !== "object" || Array.isArray(S.photoAnnouncements)){
       S.photoAnnouncements = {};
     }
+    if(!S.photoFit || typeof S.photoFit !== "object" || Array.isArray(S.photoFit)){
+      S.photoFit = {};
+    }
+    if(typeof S.lobbyTicker !== "string") S.lobbyTicker = "";
+    if(!Array.isArray(S.lobbyAnnouncements)) S.lobbyAnnouncements = [];
+    if(!Array.isArray(S.lobbyPhotoOrder)) S.lobbyPhotoOrder = [];
+    if(!S.lobbyPhotoAnnouncements || typeof S.lobbyPhotoAnnouncements !== "object" || Array.isArray(S.lobbyPhotoAnnouncements)){
+      S.lobbyPhotoAnnouncements = {};
+    }
+    if(!S.lobbyPhotoFit || typeof S.lobbyPhotoFit !== "object" || Array.isArray(S.lobbyPhotoFit)){
+      S.lobbyPhotoFit = {};
+    }
   }catch(e){ status("Cannot reach server.", "err"); return; }
   document.getElementById("ticker").value = S.ticker || "";
   document.getElementById("anns").innerHTML = "";
@@ -725,6 +756,10 @@ async function load(){
   renderRooms();
   refreshRoomOutputSelect();
   loadPhotos();
+  document.getElementById("lobbyTicker").value = S.lobbyTicker || "";
+  document.getElementById("lobbyAnns").value =
+    (S.lobbyAnnouncements || []).map(a => (a.title || "") + " | " + (a.sub || "")).join("\n");
+  loadLobbyPhotos();
 }
 
 let currentPhotos = [];
@@ -815,6 +850,23 @@ async function loadPhotos(){
     annSelect.value = S.photoAnnouncements[name] == null ? "" : String(S.photoAnnouncements[name]);
     annSelect.onchange = () => setPhotoAnnouncement(name, annSelect.value);
     d.appendChild(annLabel); d.appendChild(annSelect);
+    if(!isVideoFile(name)){
+      const fitLabel = document.createElement("label");
+      fitLabel.textContent = "PICTURE FIT";
+      const fitSelect = document.createElement("select");
+      fitSelect.className = "db-photo-fit";
+      const fitContain = document.createElement("option");
+      fitContain.value = "contain";
+      fitContain.textContent = "Show full (default)";
+      const fitCover = document.createElement("option");
+      fitCover.value = "cover";
+      fitCover.textContent = "Fill screen";
+      fitSelect.appendChild(fitContain);
+      fitSelect.appendChild(fitCover);
+      fitSelect.value = S.photoFit[name] === "cover" ? "cover" : "contain";
+      fitSelect.onchange = () => setPhotoFit(name, fitSelect.value);
+      d.appendChild(fitLabel); d.appendChild(fitSelect);
+    }
     const row = document.createElement("div");
     row.style.display = "flex"; row.style.gap = "4px"; row.style.justifyContent = "center";
     const up = document.createElement("button");
@@ -833,7 +885,7 @@ async function loadPhotos(){
          method: "POST", headers: authHeaders(),
          body: JSON.stringify({filename: name})});
        if(checkAuthResponse(r)) return;
-       if(r.ok){ status("Photo deleted.", "ok"); loadPhotos(); }
+       if(r.ok){ status("Photo deleted.", "ok"); loadPhotos(); loadLobbyPhotos(); }
       else status("Delete failed.", "err");
     };
     row.append(up, dn, del);
@@ -853,6 +905,272 @@ async function setPhotoAnnouncement(name, value){
     status("Photo display save failed.", "err");
     loadPhotos();
   }
+}
+
+async function setPhotoFit(name, value){
+  const out = collectSettings();
+  if(value === "contain") delete out.photoFit[name];
+  else out.photoFit[name] = value;
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    status("Picture fit saved — all TV outputs update automatically.", "ok");
+  }else{
+    status("Picture fit save failed.", "err");
+    loadPhotos();
+  }
+}
+
+let dragLobbyPhotoName = null;
+let lobbyInitDone = false;
+
+function parseLobbyAnns(){
+  const out = [];
+  const ta = document.getElementById("lobbyAnns");
+  (ta ? ta.value : "").split("\n").forEach(line => {
+    line = line.trim();
+    if(!line) return;
+    const i = line.indexOf("|");
+    if(i >= 0) out.push({title: line.slice(0, i).trim(), sub: line.slice(i + 1).trim()});
+    else out.push({title: line, sub: ""});
+  });
+  return out.length ? out : (S.lobbyAnnouncements || []);
+}
+
+function lobbyOrderedNames(srcs){
+  const names = (srcs || []).map(src => src.substring(src.lastIndexOf("/") + 1));
+  const order = (S.lobbyPhotoOrder && S.lobbyPhotoOrder.length) ? S.lobbyPhotoOrder.slice() : [];
+  return order.filter(n => names.indexOf(n) >= 0);
+}
+
+async function loadLobbyPhotos(){
+  const box = document.getElementById("lobbyThumbs");
+  if(!box) return;
+  box.innerHTML = "";
+  let lib = [];
+  try{
+    const r = await fetch("/api/lhc-events-board/photos");
+    lib = await r.json();
+  }catch(e){ lib = []; }
+  const libNames = lib.map(src => src.substring(src.lastIndexOf("/") + 1));
+  if((!S.lobbyPhotoOrder || !S.lobbyPhotoOrder.length) && !lobbyInitDone && libNames.length){
+    lobbyInitDone = true;
+    S.lobbyPhotoOrder = orderedNames(lib);
+    const init = collectSettings();
+    init.lobbyPhotoOrder = S.lobbyPhotoOrder.slice();
+    if(await postSettings(init)){ applySavedSettings(init); }
+  }
+  const anns = parseLobbyAnns();
+  const order = lobbyOrderedNames(lib);
+  const inLobby = new Set(order);
+  const unlisted = libNames.filter(n => !inLobby.has(n));
+  order.forEach((name, idx) => {
+    box.appendChild(lobbyThumb(name, idx, order.length, anns, false));
+  });
+  unlisted.forEach(name => {
+    box.appendChild(lobbyThumb(name, -1, 0, anns, true));
+  });
+  if(!libNames.length){
+    box.innerHTML = "<p style='font-size:13px;color:#777'>No photos yet — upload in the Photos panel above first.</p>";
+  }
+}
+
+function lobbyThumb(name, idx, total, anns, dimmed){
+  const d = document.createElement("div");
+  d.className = "db-thumb";
+  if(dimmed) d.style.opacity = "0.55";
+  else {
+    d.draggable = true;
+    d.dataset.photoName = name;
+    d.title = "Drag to reorder";
+    d.addEventListener("dragstart", e => {
+      dragLobbyPhotoName = name;
+      d.classList.add("db-dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try{ e.dataTransfer.setData("text/plain", name); }catch(err){}
+    });
+    d.addEventListener("dragend", () => {
+      dragLobbyPhotoName = null;
+      document.querySelectorAll("#lobbyThumbs .db-dragging, #lobbyThumbs .db-drop-before, #lobbyThumbs .db-drop-after")
+        .forEach(el => el.classList.remove("db-dragging", "db-drop-before", "db-drop-after"));
+    });
+    d.addEventListener("dragover", e => {
+      if(!dragLobbyPhotoName || dragLobbyPhotoName === name) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = d.getBoundingClientRect();
+      const after = (e.clientX - rect.left) > rect.width / 2;
+      d.classList.toggle("db-drop-before", !after);
+      d.classList.toggle("db-drop-after", after);
+      d.dataset.dropAfter = after ? "1" : "";
+    });
+    d.addEventListener("dragleave", () => {
+      d.classList.remove("db-drop-before", "db-drop-after");
+      d.dataset.dropAfter = "";
+    });
+    d.addEventListener("drop", e => {
+      e.preventDefault();
+      const from = dragLobbyPhotoName;
+      const after = d.dataset.dropAfter === "1";
+      d.classList.remove("db-drop-before", "db-drop-after");
+      d.dataset.dropAfter = "";
+      if(from) dropLobbyPhoto(from, name, after);
+    });
+  }
+  if(isVideoFile(name)){
+    const video = document.createElement("video");
+    video.muted = true; video.preload = "metadata";
+    video.src = "/photos/" + name;
+    d.appendChild(video);
+  }else{
+    const img = document.createElement("img");
+    img.src = "/photos/" + name; img.alt = "";
+    d.appendChild(img);
+  }
+  const cap = document.createElement("div");
+  cap.textContent = (dimmed ? "Not in lobby: " : (idx + 1) + ". ") + name;
+  d.appendChild(cap);
+  if(!dimmed){
+    const annLabel = document.createElement("label");
+    annLabel.textContent = "SLIDE DISPLAY";
+    const annSelect = document.createElement("select");
+    annSelect.className = "db-photo-ann";
+    const photoOnly = document.createElement("option");
+    photoOnly.value = "";
+    photoOnly.textContent = "Photo only";
+    annSelect.appendChild(photoOnly);
+    (anns || []).forEach((a,ai)=>{
+      const opt = document.createElement("option");
+      opt.value = String(ai);
+      opt.textContent = (ai + 1) + ". " + (a.title || ("Announcement " + (ai + 1)));
+      annSelect.appendChild(opt);
+    });
+    annSelect.value = S.lobbyPhotoAnnouncements[name] == null ? "" : String(S.lobbyPhotoAnnouncements[name]);
+    annSelect.onchange = () => setLobbyPhotoAnnouncement(name, annSelect.value);
+    d.appendChild(annLabel); d.appendChild(annSelect);
+    if(!isVideoFile(name)){
+      const fitLabel = document.createElement("label");
+      fitLabel.textContent = "PICTURE FIT";
+      const fitSelect = document.createElement("select");
+      fitSelect.className = "db-photo-fit";
+      const fitContain = document.createElement("option");
+      fitContain.value = "contain";
+      fitContain.textContent = "Show full (default)";
+      const fitCover = document.createElement("option");
+      fitCover.value = "cover";
+      fitCover.textContent = "Fill screen";
+      fitSelect.appendChild(fitContain);
+      fitSelect.appendChild(fitCover);
+      fitSelect.value = S.lobbyPhotoFit[name] === "cover" ? "cover" : "contain";
+      fitSelect.onchange = () => setLobbyPhotoFit(name, fitSelect.value);
+      d.appendChild(fitLabel); d.appendChild(fitSelect);
+    }
+  }
+  const row = document.createElement("div");
+  row.style.display = "flex"; row.style.gap = "4px"; row.style.justifyContent = "center";
+  if(dimmed){
+    const add = document.createElement("button");
+    add.className = "db-btn sec"; add.textContent = "Add to lobby";
+    add.onclick = () => addLobbyPhoto(name);
+    row.appendChild(add);
+  }else{
+    const up = document.createElement("button");
+    up.className = "db-btn sec"; up.textContent = "▲"; up.title = "Move earlier";
+    up.disabled = (idx === 0);
+    up.onclick = () => moveLobbyPhoto(name, -1);
+    const dn = document.createElement("button");
+    dn.className = "db-btn sec"; dn.textContent = "▼"; dn.title = "Move later";
+    dn.disabled = (idx === total - 1);
+    dn.onclick = () => moveLobbyPhoto(name, 1);
+    const rm = document.createElement("button");
+    rm.className = "db-btn danger"; rm.textContent = "Remove";
+    rm.title = "Remove from lobby (file stays in library)";
+    rm.onclick = () => removeLobbyPhoto(name);
+    row.append(up, dn, rm);
+  }
+  d.appendChild(row);
+  return d;
+}
+
+async function setLobbyPhotoAnnouncement(name, value){
+  const out = collectSettings();
+  if(value === "") delete out.lobbyPhotoAnnouncements[name];
+  else out.lobbyPhotoAnnouncements[name] = parseInt(value, 10);
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    status("Lobby photo display saved — lobby TV updates automatically.", "ok");
+  }else{
+    status("Lobby save failed.", "err");
+    loadLobbyPhotos();
+  }
+}
+
+async function setLobbyPhotoFit(name, value){
+  const out = collectSettings();
+  if(value === "contain") delete out.lobbyPhotoFit[name];
+  else out.lobbyPhotoFit[name] = value;
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    status("Lobby picture fit saved — lobby TV updates automatically.", "ok");
+  }else{
+    status("Lobby save failed.", "err");
+    loadLobbyPhotos();
+  }
+}
+
+async function moveLobbyPhoto(name, dir){
+  const order = lobbyOrderedNames(currentPhotos);
+  const src = order.length ? order : (S.lobbyPhotoOrder || []).slice();
+  const i = src.indexOf(name), j = i + dir;
+  if(i < 0 || j < 0 || j >= src.length) return;
+  const t = src[i]; src[i] = src[j]; src[j] = t;
+  const out = collectSettings();
+  out.lobbyPhotoOrder = src;
+  if(await postSettings(out)){ applySavedSettings(out); status("Lobby photo order saved.", "ok"); loadLobbyPhotos(); }
+  else status("Lobby save failed.", "err");
+}
+
+async function dropLobbyPhoto(fromName, targetName, after){
+  const order = lobbyOrderedNames(currentPhotos);
+  const src = order.length ? order : (S.lobbyPhotoOrder || []).slice();
+  const fromIdx = order.indexOf(fromName);
+  if(fromIdx < 0 || fromName === targetName) return;
+  src.splice(fromIdx, 1);
+  const toIdx = src.indexOf(targetName);
+  if(toIdx < 0) return;
+  src.splice(after ? toIdx + 1 : toIdx, 0, fromName);
+  const out = collectSettings();
+  out.lobbyPhotoOrder = src;
+  dragLobbyPhotoName = null;
+  if(await postSettings(out)){ applySavedSettings(out); status("Lobby photo order saved.", "ok"); loadLobbyPhotos(); }
+  else status("Lobby save failed.", "err");
+}
+
+async function addLobbyPhoto(name){
+  const src = (S.lobbyPhotoOrder || []).slice();
+  if(src.indexOf(name) < 0) src.push(name);
+  const out = collectSettings();
+  out.lobbyPhotoOrder = src;
+  if(await postSettings(out)){ applySavedSettings(out); status("Photo added to lobby.", "ok"); loadLobbyPhotos(); }
+  else status("Lobby save failed.", "err");
+}
+
+async function removeLobbyPhoto(name){
+  const out = collectSettings();
+  out.lobbyPhotoOrder = (out.lobbyPhotoOrder || []).filter(n => n !== name);
+  delete out.lobbyPhotoAnnouncements[name];
+  delete out.lobbyPhotoFit[name];
+  if(await postSettings(out)){ applySavedSettings(out); status("Photo removed from lobby (file kept).", "ok"); loadLobbyPhotos(); }
+  else status("Lobby save failed.", "err");
+}
+
+async function saveLobby(){
+  const out = collectSettings();
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    status("Lobby saved — lobby TV updates automatically within about 2 seconds.", "ok");
+    loadLobbyPhotos();
+  }
+  else status("Lobby save failed.", "err");
 }
 
 function collectSettings(){
@@ -877,6 +1195,23 @@ function collectSettings(){
     const keep = existing.size ? existing.has(name) : isListed;
     if(!keep) delete announcements[name];
   });
+  const photoFit = Object.assign({}, S.photoFit || {});
+  Object.keys(photoFit).forEach(name => {
+    const isListed = (S.photoOrder || []).indexOf(name) >= 0;
+    const keep = existing.size ? existing.has(name) : isListed;
+    if(!keep) delete photoFit[name];
+  });
+  const lobbyAnnsParsed = parseLobbyAnns();
+  const lobbyOrder = ((S.lobbyPhotoOrder || []).length ? S.lobbyPhotoOrder.slice() : [])
+    .filter(n => !existing.size || existing.has(n));
+  const lobbyAnnsMap = Object.assign({}, S.lobbyPhotoAnnouncements || {});
+  Object.keys(lobbyAnnsMap).forEach(name => {
+    if(existing.size && !existing.has(name)) delete lobbyAnnsMap[name];
+  });
+  const lobbyFit = Object.assign({}, S.lobbyPhotoFit || {});
+  Object.keys(lobbyFit).forEach(name => {
+    if(existing.size && !existing.has(name)) delete lobbyFit[name];
+  });
   const out = {
     ticker: document.getElementById("ticker").value.trim(),
     announcements: anns.length ? anns : (S.announcements || []),
@@ -893,7 +1228,13 @@ function collectSettings(){
     outputDesign: document.getElementById("outputDesign").value || "classic",
     rooms: collectRooms(),
     photoOrder: order,
-    photoAnnouncements: announcements
+    photoAnnouncements: announcements,
+    photoFit: photoFit,
+    lobbyTicker: document.getElementById("lobbyTicker").value.trim(),
+    lobbyAnnouncements: lobbyAnnsParsed,
+    lobbyPhotoOrder: lobbyOrder,
+    lobbyPhotoAnnouncements: lobbyAnnsMap,
+    lobbyPhotoFit: lobbyFit
   };
   if(!isFinite(out.weatherLat)) out.weatherLat = S.weatherLat;
   if(!isFinite(out.weatherLon)) out.weatherLon = S.weatherLon;
@@ -980,7 +1321,7 @@ function upload(){
         if(await postSettings(out)){ applySavedSettings(out); }
       }
       status("Uploaded " + ok + "/" + files.length + " photo(s).", ok ? "ok" : "err");
-      loadPhotos();
+      loadPhotos(); loadLobbyPhotos();
       return;
     }
     const f = files[i++];

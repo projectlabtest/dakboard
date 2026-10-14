@@ -26,5 +26,11 @@
     {"name": "Board Room", "location": "Board Room"}
   ],
   "photoOrder": [],
-  "photoAnnouncements": {}
+  "photoAnnouncements": {},
+  "photoFit": {},
+  "lobbyTicker": "",
+  "lobbyAnnouncements": [],
+  "lobbyPhotoOrder": [],
+  "lobbyPhotoAnnouncements": {},
+  "lobbyPhotoFit": {}
 }
