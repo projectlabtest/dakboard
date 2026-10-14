@@ -212,7 +212,11 @@
 
   <div class="db-card">
     <h2>Lobby slideshow (lobby TV only)</h2>
-    <p style="font-size:12px;color:#777;margin:0 0 8px">Sariling slideshow para sa lobby — hindi nakakaapekto sa main board. Mag-upload sa Photos panel sa itaas (shared library), tapos piliin dito kung alin ang kasama sa lobby.</p>
+    <p style="font-size:12px;color:#777;margin:0 0 8px">Sariling slideshow para sa lobby — hindi nakakaapekto sa main board. Dito mag-upload ng pang-lobby (hindi madadamay ang main).</p>
+    <div class="db-row">
+      <input type="file" id="lobbyPhotoFile" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm" multiple>
+      <button type="button" class="db-btn" onclick="uploadLobby()">Upload to lobby</button>
+    </div>
     <label>LOBBY TICKER (running text)</label>
     <textarea id="lobbyTicker" rows="2"></textarea>
     <label>LOBBY ANNOUNCEMENTS (isang announcement kada linya: Title | Sub)</label>
@@ -1320,6 +1324,59 @@ function upload(){
     }
     const f = files[i++];
     status("Uploading " + i + "/" + files.length + ": " + f.name, "");
+    const rd = new FileReader();
+    rd.onload = async () => {
+      try{
+         const r = await fetch("/api/lhc-events-board/photos/upload", {
+           method: "POST", headers: authHeaders(),
+           body: JSON.stringify({filename: f.name, data: rd.result})});
+         if(checkAuthResponse(r)) return;
+         if(r.ok) ok++;
+        else{
+          const j = await r.json().catch(() => ({}));
+          status("Failed on " + f.name + ": " + (j.error || r.status), "err");
+        }
+      }catch(e){ status("Cannot reach server.", "err"); }
+      next();
+    };
+    rd.onerror = () => { status("Cannot read " + f.name + ".", "err"); next(); };
+    rd.readAsDataURL(f);
+  }
+  next();
+}
+
+function uploadLobby(){
+  const files = Array.from(document.getElementById("lobbyPhotoFile").files || []);
+  if(!files.length){ status("Choose photos first.", "err"); return; }
+  if(files.length > 10){ status("Maximum 10 photos at a time.", "err"); return; }
+  const tooBig = files.find(f => f.size > 24 * 1024 * 1024);
+  if(tooBig){ status(tooBig.name + " is too large — keep each file under ~24MB.", "err"); return; }
+  let i = 0, ok = 0;
+  status("Uploading 1/" + files.length + " to lobby...", "");
+  const before = new Set(currentPhotos.map(p => p.substring(p.lastIndexOf("/") + 1)));
+  async function next(){
+    if(i >= files.length){
+      document.getElementById("lobbyPhotoFile").value = "";
+      if(ok > 0){
+        try{
+          const pr = await fetch("/api/lhc-events-board/photos");
+          if(pr.ok) currentPhotos = await pr.json();
+        }catch(e){}
+        const names = currentPhotos.map(p => p.substring(p.lastIndexOf("/") + 1));
+        const added = names.filter(n => !before.has(n));
+        const out = collectSettings();
+        out.photoOrder = (S.photoOrder || []).filter(n => names.indexOf(n) >= 0);
+        const lorder = (S.lobbyPhotoOrder || []).slice();
+        added.forEach(n => { if(lorder.indexOf(n) < 0) lorder.push(n); });
+        out.lobbyPhotoOrder = lorder;
+        if(await postSettings(out)){ applySavedSettings(out); }
+      }
+      status("Uploaded " + ok + "/" + files.length + " photo(s) to lobby.", ok ? "ok" : "err");
+      loadPhotos(); loadLobbyPhotos();
+      return;
+    }
+    const f = files[i++];
+    status("Uploading " + i + "/" + files.length + " to lobby: " + f.name, "");
     const rd = new FileReader();
     rd.onload = async () => {
       try{
