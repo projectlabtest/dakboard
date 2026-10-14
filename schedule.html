@@ -63,7 +63,13 @@
   .range-arrow{font-size:clamp(16px,2.2vmin,26px);color:var(--accent)}
   .meta{margin-top:clamp(16px,2.5vmin,28px);font-size:clamp(14px,2.1vmin,24px);color:var(--muted)}
   .next-panel{display:flex;flex-direction:column;justify-content:center;min-height:clamp(220px,38vh,480px);background:linear-gradient(145deg,var(--panel-2),#a9c9dc)}
-  .rundown-panel{justify-content:flex-start}
+  .rundown-panel{justify-content:flex-start;background:rgba(255,230,193,.88)}
+  .events-date{font-size:clamp(10px,1.35vmin,14px);font-weight:800;color:var(--muted);margin:5px 0 2px;letter-spacing:.5px}
+  .ev{padding:clamp(4px,1vmin,9px) 0;border-top:1px solid var(--line);font-size:clamp(13px,1.8vmin,18px);font-weight:700;color:var(--muted)}
+  .ev b{color:var(--muted);font-size:clamp(11px,1.5vmin,16px);font-weight:800}
+  .ev.today b{color:var(--muted)}
+  .ev .loc{color:var(--muted);font-size:clamp(10px,1.3vmin,14px);font-weight:700}
+  .ev-today{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:var(--success);color:#fff;font-size:clamp(7px,.9vmin,10px)}
   .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);max-height:clamp(240px,36vh,430px);overflow:auto}
   body.design-split .rundown-list{max-height:clamp(280px,44vh,560px)}
   .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
@@ -284,27 +290,39 @@ function renderRundownClassic(events){
     rundown.appendChild(empty);
     return;
   }
+  const today = manilaDateKey();
+  let lastDate = "";
   events.slice(0, 25).forEach(event => {
-    const statusValue = eventStatus(event);
-    const row = document.createElement("div");
-    row.className = "rundown-row";
-    const time = document.createElement("div");
-    time.className = "rundown-time";
-    time.textContent = event.allDay ? "ALL DAY" : (event.time || momentLabel(event.start, event.end));
-    const name = document.createElement("div");
-    name.className = "rundown-name";
-    name.textContent = event.title || "Untitled meeting";
-    const room = document.createElement("div");
-    room.className = "rundown-room";
-    const roomName = document.createElement("span");
-    roomName.className = "rundown-room-name";
-    roomName.textContent = (event.location || "Unassigned");
-    const status = document.createElement("span");
-    status.className = "rundown-status " + (statusValue === "ongoing" ? "ongoing" : "upcoming");
-    status.textContent = statusValue === "ongoing" ? "ON-GOING" : "UPCOMING";
-    room.append(roomName, status);
-    row.append(time, name, room);
-    rundown.appendChild(row);
+    const eDate = event.date || "";
+    if(eDate && eDate !== lastDate){
+      const date = document.createElement("div");
+      date.className = "events-date";
+      date.textContent = (eDate === today ? "TODAY • " : "") + (event.day || event.date || "");
+      rundown.appendChild(date);
+      lastDate = eDate;
+    }
+    const d = document.createElement("div");
+    d.className = "ev" + (eDate === today ? " today" : "");
+    const head = document.createElement("b");
+    head.textContent = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
+    if(eDate === today){
+      const badge = document.createElement("span");
+      badge.className = "ev-today";
+      badge.textContent = "TODAY";
+      head.appendChild(document.createTextNode(" "));
+      head.appendChild(badge);
+    }
+    d.appendChild(head);
+    d.appendChild(document.createElement("br"));
+    d.appendChild(document.createTextNode(event.title || "Untitled meeting"));
+    if(event.location){
+      d.appendChild(document.createElement("br"));
+      const loc = document.createElement("span");
+      loc.className = "loc";
+      loc.textContent = event.location;
+      d.appendChild(loc);
+    }
+    rundown.appendChild(d);
   });
 }
 
