@@ -224,6 +224,7 @@
     <div class="db-row" style="margin-top:8px">
       <button type="button" class="db-btn" onclick="saveLobby()">SAVE LOBBY — update the lobby TV</button>
     </div>
+    <label style="font-weight:400"><input type="checkbox" id="lobbyDefaultSlides" style="width:auto;margin-right:6px">Plain /slides URL shows the lobby slideshow too (lobby link stays the same)</label>
     <div class="db-thumbs" id="lobbyThumbs"></div>
   </div>
 </div>
@@ -738,6 +739,7 @@ async function load(){
     if(!S.lobbyPhotoFit || typeof S.lobbyPhotoFit !== "object" || Array.isArray(S.lobbyPhotoFit)){
       S.lobbyPhotoFit = {};
     }
+    if(typeof S.slidesDefaultScene !== "string") S.slidesDefaultScene = "";
   }catch(e){ status("Cannot reach server.", "err"); return; }
   document.getElementById("ticker").value = S.ticker || "";
   document.getElementById("anns").innerHTML = "";
@@ -757,6 +759,7 @@ async function load(){
   refreshRoomOutputSelect();
   loadPhotos();
   document.getElementById("lobbyTicker").value = S.lobbyTicker || "";
+  document.getElementById("lobbyDefaultSlides").checked = (S.slidesDefaultScene === "lobby");
   document.getElementById("lobbyAnns").value =
     (S.lobbyAnnouncements || []).map(a => (a.title || "") + " | " + (a.sub || "")).join("\n");
   loadLobbyPhotos();
@@ -1234,7 +1237,8 @@ function collectSettings(){
     lobbyAnnouncements: lobbyAnnsParsed,
     lobbyPhotoOrder: lobbyOrder,
     lobbyPhotoAnnouncements: lobbyAnnsMap,
-    lobbyPhotoFit: lobbyFit
+    lobbyPhotoFit: lobbyFit,
+    slidesDefaultScene: document.getElementById("lobbyDefaultSlides").checked ? "lobby" : ""
   };
   if(!isFinite(out.weatherLat)) out.weatherLat = S.weatherLat;
   if(!isFinite(out.weatherLon)) out.weatherLon = S.weatherLon;

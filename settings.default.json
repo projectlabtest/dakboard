@@ -32,5 +32,6 @@
   "lobbyAnnouncements": [],
   "lobbyPhotoOrder": [],
   "lobbyPhotoAnnouncements": {},
-  "lobbyPhotoFit": {}
+  "lobbyPhotoFit": {},
+  "slidesDefaultScene": ""
 }
