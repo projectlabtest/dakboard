@@ -176,10 +176,6 @@
     <input type="text" id="slidesLandscapeUrl" readonly onclick="this.select()">
     <label>SLIDES OUTPUT URL — PORTRAIT (slides + running text only)</label>
     <input type="text" id="slidesPortraitUrl" readonly onclick="this.select()">
-    <label>LOBBY SLIDES URL — LANDSCAPE (lobby slideshow only)</label>
-    <input type="text" id="lobbySlidesLandscapeUrl" readonly onclick="this.select()">
-    <label>LOBBY SLIDES URL — PORTRAIT (lobby slideshow only)</label>
-    <input type="text" id="lobbySlidesPortraitUrl" readonly onclick="this.select()">
     <label>SCHEDULE OUTPUT URL — LANDSCAPE (slideshow + event rundown, no room status)</label>
     <input type="text" id="scheduleLandscapeUrl" readonly onclick="this.select()">
     <label>SCHEDULE OUTPUT URL — PORTRAIT (slideshow + event rundown, no room status)</label>
@@ -249,8 +245,6 @@ function applyOutputUrls(){
   document.getElementById("portraitOutputUrl").value = SERVER_BASE + "/lhc-events-board?orientation=portrait";
   document.getElementById("slidesLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=landscape";
   document.getElementById("slidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=portrait";
-  document.getElementById("lobbySlidesLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/slides?scene=lobby&orientation=landscape";
-  document.getElementById("lobbySlidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?scene=lobby&orientation=portrait";
   document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=landscape";
   document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait";
   updateRoomOutputUrls();
