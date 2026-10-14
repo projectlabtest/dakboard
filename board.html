@@ -435,7 +435,9 @@ function renderEvents(){
   const title = document.getElementById("eventsTitle");
   const roomInfo = document.getElementById("roomInfo");
   const room = ROOM_CONFIG;
-  const visible = room ? eventsForRoom(currentEvents, room) : eventsForCurrentMonth(currentEvents);
+  const visible = room ? eventsForRoom(currentEvents, room) : currentEvents
+    .filter(e => e && eventStatus(e) !== "ended")
+    .sort((a,b) => Date.parse(a.start || 0) - Date.parse(b.start || 0));
   if(room){
     title.textContent = "ROOM SCHEDULE";
     roomInfo.style.display = "";
@@ -464,7 +466,7 @@ function renderEvents(){
   }
   const today = manilaDateKey();
   let lastDate = "";
-  visible.slice(0, room ? 8 : 5).forEach(e => {
+  (room ? visible.slice(0, 8) : visible).forEach(e => {
     if(e.date !== lastDate){
       const date = document.createElement("div");
       date.className = "events-date";
