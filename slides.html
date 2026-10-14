@@ -63,7 +63,7 @@ const query = new URLSearchParams(location.search);
 document.body.classList.toggle("portrait", query.get("orientation") === "portrait");
 const sceneParam = (query.get("scene") || "").trim().toLowerCase();
 let scene = sceneParam;
-let isLobby = (scene === "lobby");
+let isLobby = (scene !== "main");
 let S = {ticker:"", announcements:[], photoOrder:[], photoAnnouncements:{}, photoFit:{}, slideSeconds:10};
 let lastSettings = "";
 let lastSlidesHtml = "";
@@ -224,8 +224,8 @@ function isVideoFile(src){
 (async function boot(){
   const txt = await fetchSettings();
   if(txt !== null) lastSettings = txt;
-  scene = sceneParam || ((S.slidesDefaultScene || "").trim().toLowerCase());
-  isLobby = (scene === "lobby");
+  scene = sceneParam || "lobby";
+  isLobby = (scene !== "main");
   document.getElementById("ticker-text").textContent =
     isLobby ? (S.lobbyTicker || S.ticker || "Welcome to LIFE HOPE CENTER")
             : (S.ticker || "Welcome to LIFE HOPE CENTER");
