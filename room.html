@@ -76,6 +76,8 @@
   .next-panel{display:flex;flex-direction:column;justify-content:center;min-height:0;background:linear-gradient(145deg,var(--panel-2),#a9c9dc)}
   .rundown-panel{justify-content:flex-start}
   .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);max-height:clamp(240px,36vh,430px);overflow:auto}
+  .rundown-date{grid-column:1/-1;font-size:clamp(11px,1.5vmin,16px);font-weight:800;letter-spacing:1px;color:var(--accent);margin:8px 0 2px;border-top:2px solid var(--line);padding-top:8px}
+  .rundown-date:first-child{border-top:0;margin-top:0;padding-top:0}
   body.design-split .rundown-list{max-height:clamp(280px,44vh,520px)}
   .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
   .rundown-row:first-child{border-top:0}
@@ -374,6 +376,13 @@ function manilaDateKey(){
   return values.year+"-"+values.month+"-"+values.day;
 }
 
+function manilaDateKeyPlus(days){
+  const parts = new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(Date.now() + days * 86400000));
+  const values = {};
+  parts.forEach(p => { if(p.type !== "literal") values[p.type] = p.value; });
+  return values.year+"-"+values.month+"-"+values.day;
+}
+
 function renderRundownClassic(events){
   const rundown = document.getElementById("rundownList");
   const count = document.getElementById("rundownCount");
@@ -404,7 +413,20 @@ function renderRundownClassic(events){
     rundown.appendChild(empty);
     return;
   }
+  const today = manilaDateKey();
+  const tomorrow = manilaDateKeyPlus(1);
+  let lastDate = "";
   list.slice(0, 6).forEach(event => {
+    const eDate = event.date || "";
+    if(eDate && eDate !== lastDate){
+      const dh = document.createElement("div");
+      dh.className = "rundown-date";
+      dh.textContent = eDate === today ? "TODAY • " + (event.day || eDate)
+        : eDate === tomorrow ? "TOMORROW • " + (event.day || eDate)
+        : (event.day || eDate);
+      rundown.appendChild(dh);
+      lastDate = eDate;
+    }
     const statusValue = eventStatus(event);
     const currentRoom = roomConfig && eventInRoom(event, roomConfig);
     const row = document.createElement("div");
@@ -464,12 +486,13 @@ function renderRundown(events){
     return;
   }
   const today = manilaDateKey();
+  const tomorrow = manilaDateKeyPlus(1);
   let lastDate = "";
   list.slice(0, 8).forEach(event => {
     if(event.date && event.date !== lastDate){
       const date = document.createElement("div");
       date.className = "ev-date";
-      date.textContent = (event.date === today ? "TODAY • " : "") + (event.day || formatDate(event.start));
+      date.textContent = (event.date === today ? "TODAY • " : event.date === tomorrow ? "TOMORROW • " : "") + (event.day || formatDate(event.start));
       rundown.appendChild(date);
       lastDate = event.date;
     }
