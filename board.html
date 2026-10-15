@@ -109,10 +109,13 @@
   body.portrait .left{display:grid;grid-template-columns:1fr;
     grid-template-rows:auto auto auto minmax(0,1fr);align-content:start;gap:var(--gap);
     padding:var(--edge);border-right:0;border-bottom:1px solid var(--line);min-height:0;overflow:hidden}
-  body.portrait .left>div:first-child{grid-column:1;grid-row:1}
+  body.portrait .left>div:first-child{grid-column:1;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--gap)}
+  body.portrait .left>div:first-child .brand{grid-column:1;grid-row:1/3;align-self:center;min-width:0}
+  body.portrait .left>div:first-child .clock{grid-column:2;grid-row:1;justify-self:end;white-space:nowrap}
+  body.portrait .left>div:first-child .date{grid-column:2;grid-row:2;justify-self:end;text-align:right;white-space:nowrap}
   body.portrait .clock{font-size:clamp(42px,12vmin,92px)}
   body.portrait .date{font-size:clamp(14px,2.8vmin,22px)}
-  body.portrait .weather{grid-column:1;grid-row:2;align-self:start;justify-self:start;width:max-content;max-width:100%;
+  body.portrait .weather{grid-column:1;grid-row:2;align-self:start;justify-self:end;width:max-content;max-width:100%;
     padding:clamp(6px,1vmin,10px);font-size:clamp(16px,2.1vmin,27px)}
   body.portrait .verse{grid-column:1;grid-row:3;align-self:start;padding:clamp(12px,2.4vmin,20px)}
   body.portrait #eventsCard{grid-column:1;grid-row:4;min-height:0;overflow:auto}
