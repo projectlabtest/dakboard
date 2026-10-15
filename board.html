@@ -102,8 +102,9 @@
   .ev-status{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;font-size:11px;letter-spacing:.4px;vertical-align:middle}
   .room-empty{color:var(--rundown-text);font-size:15px;font-weight:700;padding:6px 0}
   .brand{display:flex;align-items:center;gap:16px;font-size:52px;font-weight:800;color:var(--muted);letter-spacing:2px}
-  .brand-text{display:flex;flex-direction:column;line-height:1.04;text-align:center}
-  .brand-logo{height:80px;width:auto;object-fit:contain}
+  .brand-text{display:flex;flex-direction:column;align-items:stretch;line-height:1.04;text-align:center}
+  .brand-bottom{display:flex;justify-content:space-between}
+  .brand-logo{height:104px;width:auto;object-fit:contain}
   body:not(.portrait) .left>div:first-child,
   body:not(.portrait) .weather,
   body:not(.portrait) .verse{flex:0 0 auto}
@@ -572,15 +573,21 @@ function fitStage(){
 }
 window.addEventListener("resize", fitStage);
 
-/* Brand name: last word on its own line, e.g. "LIFE HOPE" / "CENTER" */
+/* Brand name: last word letters spread edge-to-edge under the top line */
 function setBrandName(el, name){
   const words = (name || "LIFE HOPE CENTER").trim().split(/\s+/);
   el.replaceChildren();
   if(words.length >= 2){
     const top = document.createElement("span");
+    top.className = "brand-top";
     top.textContent = words.slice(0, -1).join(" ");
     const bottom = document.createElement("span");
-    bottom.textContent = words[words.length - 1];
+    bottom.className = "brand-bottom";
+    for(const ch of words[words.length - 1]){
+      const s = document.createElement("span");
+      s.textContent = ch;
+      bottom.appendChild(s);
+    }
     el.append(top, bottom);
   }else{
     el.textContent = words[0] || "";
