@@ -325,6 +325,15 @@ function momentLabel(value, other){
   return sameManilaDate(value, other) ? time : formatDate(value) + " " + time;
 }
 
+function timeRange(event){
+  const s = Date.parse(event.start || ""), e = Date.parse(event.end || "");
+  const base = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
+  if(event.allDay || !Number.isFinite(s) || !Number.isFinite(e) || e <= s) return base;
+  const endLabel = sameManilaDate(s, e) ? formatTime(event.end)
+    : (formatDate(event.end) + " " + formatTime(event.end));
+  return base + " – " + endLabel;
+}
+
 function addRangePart(container, label, value){
   const labelEl = document.createElement("span");
   labelEl.className = "range-label";
@@ -435,7 +444,7 @@ function renderRundownClassic(events){
     row.className = "rundown-row" + (currentRoom ? " is-this-room" : "");
     const time = document.createElement("div");
     time.className = "rundown-time";
-    time.textContent = event.allDay ? "ALL DAY" : (event.time || momentLabel(event.start, event.end));
+    time.textContent = event.allDay ? "ALL DAY" : timeRange(event);
     const name = document.createElement("div");
     name.className = "rundown-name";
     name.textContent = event.title || "Untitled meeting";
@@ -504,7 +513,7 @@ function renderRundown(events){
     row.className = "ev-row" + (currentRoom ? " is-this-room" : "");
     const head = document.createElement("div");
     head.className = "ev-head";
-    head.textContent = event.allDay ? "ALL DAY" : (event.time || momentLabel(event.start, event.end));
+    head.textContent = event.allDay ? "ALL DAY" : timeRange(event);
     const badge = document.createElement("span");
     badge.className = "ev-badge" + (statusValue === "ongoing" ? " ongoing" : "");
     badge.textContent = statusValue === "ongoing" ? "ON-GOING" : "UPCOMING";
