@@ -193,6 +193,8 @@
     <input type="text" id="scheduleLandscapeUrl" readonly onclick="this.select()">
     <label>SCHEDULE OUTPUT URL — PORTRAIT (slideshow + event rundown, no room status)</label>
     <input type="text" id="schedulePortraitUrl" readonly onclick="this.select()">
+    <label>RUNDOWN OUTPUT URL — PORTRAIT (event rundown only, no slides)</label>
+    <input type="text" id="rundownPortraitUrl" readonly onclick="this.select()">
     <label>ROOM OUTPUT — SELECT ROOM</label>
     <select id="roomOutputSelect" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff" onchange="updateRoomOutputUrls()"></select>
     <label>ROOM OUTPUT URL — LANDSCAPE (meeting + announcements)</label>
@@ -264,6 +266,7 @@ function applyOutputUrls(){
   document.getElementById("slidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=portrait";
   document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=landscape";
   document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait";
+  document.getElementById("rundownPortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait&design=solo";
   updateRoomOutputUrls();
 }
 applyOutputUrls();
