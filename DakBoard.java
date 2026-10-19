@@ -44,15 +44,15 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
 /**
- * LIFE HOPE CENTER DAKboard - standalone Java server, no dependencies.
+ * Event Board (DAKboard) - standalone Java server, no dependencies.
  *
  * Run from the dakboard-java folder:
  *   javac DakBoard.java
  *   java DakBoard [port, default 8080]
  *
- * Board:        http://localhost:8080/lhc-events-board
- * Control page: http://localhost:8080/lhc-events-board/admin
- * Editor page:  http://localhost:8080/lhc-events-board/editor (limited content editing)
+ * Board:        http://localhost:8080/event-board
+ * Control page: http://localhost:8080/event-board/admin
+ * Editor page:  http://localhost:8080/event-board/editor (limited content editing)
  */
 public class DakBoard {
 
@@ -105,41 +105,43 @@ public class DakBoard {
     }
     String bind = envOrDefault("DAKBOARD_BIND", "0.0.0.0");
     HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
-    server.createContext("/lhc-events-board/login", DakBoard::handleLoginPage);
-    server.createContext("/lhc-events-board/admin", DakBoard::handleAdmin);
-    server.createContext("/lhc-events-board/editor", DakBoard::handleEditorPage);
-    server.createContext("/lhc-events-board/room", DakBoard::handleRoom);
-    server.createContext("/lhc-events-board/schedule", DakBoard::handleSchedule);
-    server.createContext("/lhc-events-board/slides", DakBoard::handleSlides);
-    server.createContext("/lhc-events-board", DakBoard::handleBoard);
-    server.createContext("/api/lhc-events-board/login", DakBoard::handleLogin);
-    server.createContext("/api/lhc-events-board/logout", DakBoard::handleLogout);
-    server.createContext("/api/lhc-events-board/session", DakBoard::handleSession);
-    server.createContext("/api/lhc-events-board/password", DakBoard::handleChangePassword);
-    server.createContext("/api/lhc-events-board/editor-password", DakBoard::handleEditorPassword);
-    server.createContext("/api/lhc-events-board/admin/settings", DakBoard::handleAdminSettings);
-    server.createContext("/api/lhc-events-board/settings", DakBoard::handleSettings);
-    server.createContext("/api/lhc-events-board/server-info", DakBoard::handleServerInfo);
-    server.createContext("/api/lhc-events-board/photos/upload", DakBoard::handleUpload);
-    server.createContext("/api/lhc-events-board/photos/delete", DakBoard::handleDelete);
-    server.createContext("/api/lhc-events-board/photos", DakBoard::handlePhotos);
-    server.createContext("/api/lhc-events-board/events", DakBoard::handleEvents);
+    server.createContext("/event-board/login", DakBoard::handleLoginPage);
+    server.createContext("/event-board/admin", DakBoard::handleAdmin);
+    server.createContext("/event-board/editor", DakBoard::handleEditorPage);
+    server.createContext("/event-board/room", DakBoard::handleRoom);
+    server.createContext("/event-board/schedule", DakBoard::handleSchedule);
+    server.createContext("/event-board/slides", DakBoard::handleSlides);
+    server.createContext("/event-board", DakBoard::handleBoard);
+    server.createContext("/api/event-board/login", DakBoard::handleLogin);
+    server.createContext("/api/event-board/logout", DakBoard::handleLogout);
+    server.createContext("/api/event-board/session", DakBoard::handleSession);
+    server.createContext("/api/event-board/password", DakBoard::handleChangePassword);
+    server.createContext("/api/event-board/editor-password", DakBoard::handleEditorPassword);
+    server.createContext("/api/event-board/admin/settings", DakBoard::handleAdminSettings);
+    server.createContext("/api/event-board/settings", DakBoard::handleSettings);
+    server.createContext("/api/event-board/server-info", DakBoard::handleServerInfo);
+    server.createContext("/api/event-board/photos/upload", DakBoard::handleUpload);
+    server.createContext("/api/event-board/photos/delete", DakBoard::handleDelete);
+    server.createContext("/api/event-board/photos", DakBoard::handlePhotos);
+    server.createContext("/api/event-board/events", DakBoard::handleEvents);
     server.createContext("/sample-events.ics", DakBoard::handleSampleEvents);
     server.createContext("/photos", DakBoard::handlePhotoFile);
     server.createContext("/dakboard", DakBoard::handleLegacyRedirect);
     server.createContext("/api/dakboard", DakBoard::handleLegacyRedirect);
+    server.createContext("/lhc-events-board", DakBoard::handleLegacyRedirect);
+    server.createContext("/api/lhc-events-board", DakBoard::handleLegacyRedirect);
     server.createContext("/", DakBoard::handleRoot);
     server.setExecutor(Executors.newFixedThreadPool(8));
     server.start();
-    System.out.println("DAKboard running at http://localhost:" + port + "/lhc-events-board");
-    System.out.println("Admin login at http://localhost:" + port + "/lhc-events-board/login");
+    System.out.println("DAKboard running at http://localhost:" + port + "/event-board");
+    System.out.println("Admin login at http://localhost:" + port + "/event-board/login");
     if (!authConfigured()) {
       System.out.println("Set DAKBOARD_ADMIN_PASSWORD before using the admin login.");
     } else if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) {
       System.out.println("Admin password comes from " + CREDENTIAL_FILE
           + " (set from the admin page). Delete that file to fall back to the startup password.");
     }
-    System.out.println("Editor page at http://localhost:" + port + "/lhc-events-board/editor"
+    System.out.println("Editor page at http://localhost:" + port + "/event-board/editor"
         + " (username \"" + editorUsername() + "\")");
     if (!editorConfigured()) {
       System.out.println("Editor login is disabled. Set DAKBOARD_EDITOR_PASSWORD or set an editor"
@@ -153,19 +155,19 @@ public class DakBoard {
   // ---------------- routes ----------------
 
   static void handleRoot(HttpExchange ex) throws IOException {
-    redirect(ex, "/lhc-events-board");
+    redirect(ex, "/event-board");
   }
 
-  /** Redirects old /dakboard... URLs to their /lhc-events-board... counterparts. */
+  /** Redirects old /dakboard... and /lhc-events-board... URLs to /event-board.... */
   static void handleLegacyRedirect(HttpExchange ex) throws IOException {
     String path = ex.getRequestURI().getPath();
     String query = ex.getRequestURI().getRawQuery();
     String rest = "";
-    for (String prefix : new String[]{"/api/dakboard", "/dakboard"}) {
+    for (String prefix : new String[]{"/api/dakboard", "/dakboard", "/api/lhc-events-board", "/lhc-events-board"}) {
       if (path.equals(prefix)) { rest = ""; break; }
       if (path.startsWith(prefix + "/")) { rest = path.substring(prefix.length()); break; }
     }
-    String base = path.startsWith("/api/") ? "/api/lhc-events-board" : "/lhc-events-board";
+    String base = path.startsWith("/api/") ? "/api/event-board" : "/event-board";
     String target = base + rest;
     if (query != null && !query.isEmpty()) target += "?" + query;
     redirect(ex, target);
@@ -213,11 +215,11 @@ public class DakBoard {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     Session session = session(ex);
     if (session == null) {
-      redirect(ex, "/lhc-events-board/login?next=/lhc-events-board/admin");
+      redirect(ex, "/event-board/login?next=/event-board/admin");
       return;
     }
     if (!"admin".equals(session.role)) {
-      redirect(ex, "/lhc-events-board/editor");
+      redirect(ex, "/event-board/editor");
       return;
     }
     sendFile(ex, ROOT.resolve("admin.html"), "text/html; charset=utf-8");
@@ -226,7 +228,7 @@ public class DakBoard {
   static void handleEditorPage(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     if (session(ex) == null) {
-      redirect(ex, "/lhc-events-board/login?next=/lhc-events-board/editor");
+      redirect(ex, "/event-board/login?next=/event-board/editor");
       return;
     }
     sendFile(ex, ROOT.resolve("editor.html"), "text/html; charset=utf-8");
@@ -262,7 +264,7 @@ public class DakBoard {
     String csrf = randomToken();
     SESSIONS.put(token, new Session(csrf, role));
     setSessionCookie(ex, token, false);
-    String next = "editor".equals(role) ? "/lhc-events-board/editor" : safeNext(form.get("next"));
+    String next = "editor".equals(role) ? "/event-board/editor" : safeNext(form.get("next"));
     send(ex, 200, "{\"ok\":true,\"role\":" + quoted(role) + ",\"next\":" + quoted(next) + "}", "application/json");
   }
 
@@ -673,7 +675,7 @@ public class DakBoard {
           .followRedirects(HttpClient.Redirect.NORMAL).build();
       HttpRequest req = HttpRequest.newBuilder(URI.create(url))
           .timeout(Duration.ofSeconds(20))
-          .header("User-Agent", "LHC-DAKboard/1.0").GET().build();
+          .header("User-Agent", "Event-Board/1.0").GET().build();
       HttpResponse<byte[]> res = client.send(req, HttpResponse.BodyHandlers.ofByteArray());
       if (res.statusCode() < 200 || res.statusCode() >= 300) return null;
       byte[] b = res.body();
@@ -1186,8 +1188,8 @@ public class DakBoard {
 
   static String safeNext(String value) {
     if (value == null || value.contains("\r") || value.contains("\n")
-        || !value.startsWith("/lhc-events-board") || value.startsWith("//")) {
-      return "/lhc-events-board/admin";
+        || !value.startsWith("/event-board") || value.startsWith("//")) {
+      return "/event-board/admin";
     }
     return value;
   }

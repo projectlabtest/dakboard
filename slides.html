@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LIFE HOPE CENTER — Slides</title>
+<title>Event Board — Slides</title>
 <style>
   :root{
     --bg:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%); --text:#173b63; --muted:#315b7d;
@@ -60,7 +60,7 @@
 <body>
 <div class="grid">
   <div class="main" id="slideshow"><!-- slides via JS --></div>
-  <div class="ticker"><span id="ticker-text">Welcome to LIFE HOPE CENTER</span></div>
+  <div class="ticker"><span id="ticker-text">Welcome to EVENT BOARD</span></div>
 </div>
 <script>
 const query = new URLSearchParams(location.search);
@@ -75,7 +75,7 @@ let lastPhotos = "";
 
 async function fetchSettings(){
   try{
-    const r = await fetch("/api/lhc-events-board/settings?ts=" + Date.now(), {cache:"no-store"});
+    const r = await fetch("/api/event-board/settings?ts=" + Date.now(), {cache:"no-store"});
     if(!r.ok) return null;
     const txt = await r.text();
     try{ S = Object.assign(S, JSON.parse(txt)); }catch(e){}
@@ -102,7 +102,7 @@ async function checkSettings(){
     const txt = await fetchSettings();
     if(txt !== null && lastSettings && txt !== lastSettings){ location.reload(); return; }
     else if(txt !== null) lastSettings = txt;
-    const pr = await fetch("/api/lhc-events-board/photos?ts=" + Date.now(), {cache:"no-store"});
+    const pr = await fetch("/api/event-board/photos?ts=" + Date.now(), {cache:"no-store"});
     if(pr.ok){
       const pt = await pr.text();
       if(lastPhotos && pt !== lastPhotos){ location.reload(); return; }
@@ -115,7 +115,7 @@ async function loadSlides(){
   const box = document.getElementById("slideshow");
   let photos = [];
   try{
-    const r = await fetch("/api/lhc-events-board/photos");
+    const r = await fetch("/api/event-board/photos");
     if(r.ok) photos = await r.json();
   }catch(e){}
   const brandFile = (S.brandLogo || "").trim();
@@ -234,13 +234,13 @@ function isVideoFile(src){
   isLobby = (scene !== "main");
   document.body.classList.toggle("theme-dark", (S.theme || "default") === "dark");
   document.getElementById("ticker-text").textContent =
-    isLobby ? (S.lobbyTicker || S.ticker || "Welcome to LIFE HOPE CENTER")
-            : (S.ticker || "Welcome to LIFE HOPE CENTER");
+    isLobby ? (S.lobbyTicker || S.ticker || "Welcome to EVENT BOARD")
+            : (S.ticker || "Welcome to EVENT BOARD");
   await loadSlides();
   const html = await fetchSlidesHtml();
   if(html !== null) lastSlidesHtml = html;
   try{
-    const pr = await fetch("/api/lhc-events-board/photos?ts=" + Date.now(), {cache:"no-store"});
+    const pr = await fetch("/api/event-board/photos?ts=" + Date.now(), {cache:"no-store"});
     if(pr.ok) lastPhotos = await pr.text();
   }catch(e){}
   setInterval(checkSettings, 2000);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LHC EVENTS BOARD CONTROL</title>
+<title>EVENT BOARD CONTROL</title>
 <style>
   body{font-family:Segoe UI,Arial,sans-serif;background:#f1f5f9;margin:0;padding:20px}
   .db-wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
@@ -49,7 +49,7 @@
 <body>
 <div class="db-wrap">
   <div class="db-card">
-    <h2>LHC EVENTS BOARD CONTROL</h2>
+    <h2>EVENT BOARD CONTROL</h2>
      <p style="font-size:13px;color:#555;margin:0">Everything shown on the TV display is changed here. After Save, all TV outputs refresh automatically within about 2 seconds.</p>
      <div id="status"></div>
      <div class="db-actions">
@@ -133,7 +133,7 @@
   <div class="db-card">
     <h2>Display settings</h2>
     <label>BRAND NAME (shown on all outputs)</label>
-    <input type="text" id="brandName" value="" placeholder="LIFE HOPE CENTER">
+    <input type="text" id="brandName" value="" placeholder="EVENT BOARD">
     <label>BRAND LOGO (filename sa Photos library — blank kung text lang)</label>
     <input type="text" id="brandLogo" value="" placeholder="logo.png">
     <div class="db-row" style="margin-top:8px">
@@ -260,19 +260,19 @@ document.getElementById("outlookIcsUrl").addEventListener("input", () => {
 });
 let SERVER_BASE = location.origin;
 function applyOutputUrls(){
-  document.getElementById("landscapeOutputUrl").value = SERVER_BASE + "/lhc-events-board?orientation=landscape";
-  document.getElementById("portraitOutputUrl").value = SERVER_BASE + "/lhc-events-board?orientation=portrait";
-  document.getElementById("slidesLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=landscape";
-  document.getElementById("slidesPortraitUrl").value = SERVER_BASE + "/lhc-events-board/slides?orientation=portrait";
-  document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=landscape";
-  document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait";
-  document.getElementById("rundownPortraitUrl").value = SERVER_BASE + "/lhc-events-board/schedule?orientation=portrait&design=solo";
+  document.getElementById("landscapeOutputUrl").value = SERVER_BASE + "/event-board?orientation=landscape";
+  document.getElementById("portraitOutputUrl").value = SERVER_BASE + "/event-board?orientation=portrait";
+  document.getElementById("slidesLandscapeUrl").value = SERVER_BASE + "/event-board/slides?orientation=landscape";
+  document.getElementById("slidesPortraitUrl").value = SERVER_BASE + "/event-board/slides?orientation=portrait";
+  document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/event-board/schedule?orientation=landscape";
+  document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/event-board/schedule?orientation=portrait";
+  document.getElementById("rundownPortraitUrl").value = SERVER_BASE + "/event-board/schedule?orientation=portrait&design=solo";
   updateRoomOutputUrls();
 }
 applyOutputUrls();
 async function resolveServerBase(){
   try{
-    const r = await fetch("/api/lhc-events-board/server-info", {cache:"no-store"});
+    const r = await fetch("/api/event-board/server-info", {cache:"no-store"});
     if(r.ok){
       const j = await r.json();
       if(j && j.lanIp && j.port){
@@ -298,8 +298,8 @@ function updateRoomOutputUrls(){
   const sel = document.getElementById("roomOutputSelect");
   const name = sel && sel.value ? sel.value : "";
   const suffix = name ? "&room=" + encodeURIComponent(name) : "";
-  document.getElementById("roomLandscapeUrl").value = SERVER_BASE + "/lhc-events-board/room?orientation=landscape" + suffix;
-  document.getElementById("roomPortraitUrl").value = SERVER_BASE + "/lhc-events-board/room?orientation=portrait" + suffix;
+  document.getElementById("roomLandscapeUrl").value = SERVER_BASE + "/event-board/room?orientation=landscape" + suffix;
+  document.getElementById("roomPortraitUrl").value = SERVER_BASE + "/event-board/room?orientation=portrait" + suffix;
 }
 
 function refreshRoomOutputSelect(){
@@ -328,7 +328,7 @@ function status(msg, cls){
 }
 
 function redirectToLogin(){
-  location.href="/lhc-events-board/login?next=" + encodeURIComponent("/lhc-events-board/admin");
+  location.href="/event-board/login?next=" + encodeURIComponent("/event-board/admin");
 }
 
 function checkAuthResponse(response){
@@ -341,7 +341,7 @@ function checkAuthResponse(response){
 
 async function loadSession(){
   try{
-    const response = await fetch("/api/lhc-events-board/session", {credentials:"same-origin", cache:"no-store"});
+    const response = await fetch("/api/event-board/session", {credentials:"same-origin", cache:"no-store"});
     if(!response.ok){ redirectToLogin(); return false; }
     SESSION = await response.json();
     CSRF_TOKEN = SESSION.csrfToken || "";
@@ -356,11 +356,11 @@ async function loadSession(){
 
 async function logout(){
   try{
-    await fetch("/api/lhc-events-board/logout", {
+    await fetch("/api/event-board/logout", {
       method:"POST", headers:{"X-CSRF-Token":CSRF_TOKEN}, credentials:"same-origin"
     });
   }catch(error){}
-  location.href="/lhc-events-board/login";
+  location.href="/event-board/login";
 }
 
 function authHeaders(){
@@ -431,7 +431,7 @@ async function changePassword(){
   }
   pwStatus("Saving...", "");
   try{
-    const response = await fetch("/api/lhc-events-board/password", {
+    const response = await fetch("/api/event-board/password", {
       method:"POST", headers:authHeaders(), credentials:"same-origin",
       body:JSON.stringify({currentPassword:current, newPassword:next})
     });
@@ -455,7 +455,7 @@ function editorStatus(msg, cls){
 }
 
 function refreshEditorAccess(){
-  document.getElementById("editorLink").value = location.origin + "/lhc-events-board/editor";
+  document.getElementById("editorLink").value = location.origin + "/event-board/editor";
   if(SESSION){
     document.getElementById("editorUsername").value = SESSION.editorUsername || "editor";
     editorStatus(SESSION.editorEnabled ? "Editor login is ON." : "Editor login is OFF — mag-set ng password para buksan.",
@@ -471,7 +471,7 @@ async function saveEditorAccount(){
   if(!name){ editorStatus("Type an editor username first.", "err"); return; }
   editorStatus("Saving...", "");
   try{
-    const response = await fetch("/api/lhc-events-board/editor-password", {
+    const response = await fetch("/api/event-board/editor-password", {
       method:"POST", headers:authHeaders(), credentials:"same-origin",
       body:JSON.stringify({newUsername:name, newPassword:next})
     });
@@ -494,7 +494,7 @@ async function saveEditorAccount(){
 async function disableEditorPassword(){
   editorStatus("Removing...", "");
   try{
-    const response = await fetch("/api/lhc-events-board/editor-password", {
+    const response = await fetch("/api/event-board/editor-password", {
       method:"POST", headers:authHeaders(), credentials:"same-origin",
       body:JSON.stringify({newPassword:""})
     });
@@ -729,7 +729,7 @@ function applySavedSettings(out){
 
 async function load(){
   try{
-    const r = await fetch("/api/lhc-events-board/admin/settings", {credentials:"same-origin", cache:"no-store"});
+    const r = await fetch("/api/event-board/admin/settings", {credentials:"same-origin", cache:"no-store"});
     if(checkAuthResponse(r)) return;
     if(!r.ok){ status("Cannot load settings.", "err"); return; }
     S = await r.json();
@@ -765,7 +765,7 @@ async function load(){
   icsUrlEdited = false;
   document.getElementById("outlookIcsUrl").value = S.outlookIcsUrl || "";
   document.getElementById("orientation").value = S.orientation || "landscape";
-  document.getElementById("brandName").value = S.brandName || "LIFE HOPE CENTER";
+  document.getElementById("brandName").value = S.brandName || "EVENT BOARD";
   document.getElementById("brandLogo").value = S.brandLogo || "";
   document.getElementById("mainOutput").value = S.mainOutput || "board";
   document.getElementById("outputDesign").value = S.outputDesign || "classic";
@@ -786,7 +786,7 @@ async function loadPhotos(){
   const box = document.getElementById("thumbs");
   box.innerHTML = "";
   try{
-    const r = await fetch("/api/lhc-events-board/photos");
+    const r = await fetch("/api/event-board/photos");
     currentPhotos = await r.json();
   }catch(e){ currentPhotos = []; }
   if(!currentPhotos.length){
@@ -898,7 +898,7 @@ async function loadPhotos(){
     del.className = "db-btn danger"; del.textContent = "Delete";
     del.onclick = async () => {
       if(!confirm("Delete " + name + "?")) return;
-       const r = await fetch("/api/lhc-events-board/photos/delete", {
+       const r = await fetch("/api/event-board/photos/delete", {
          method: "POST", headers: authHeaders(),
          body: JSON.stringify({filename: name})});
        if(checkAuthResponse(r)) return;
@@ -964,7 +964,7 @@ async function loadLobbyPhotos(){
   box.innerHTML = "";
   let lib = [];
   try{
-    const r = await fetch("/api/lhc-events-board/photos");
+    const r = await fetch("/api/event-board/photos");
     lib = await r.json();
   }catch(e){ lib = []; }
   const libNames = lib.map(src => src.substring(src.lastIndexOf("/") + 1));
@@ -1239,7 +1239,7 @@ function collectSettings(){
       ? document.getElementById("outlookIcsUrl").value.trim()
       : ((S && S.outlookIcsUrl) || ""),
     orientation: document.getElementById("orientation").value,
-    brandName: document.getElementById("brandName").value.trim() || "LIFE HOPE CENTER",
+    brandName: document.getElementById("brandName").value.trim() || "EVENT BOARD",
     brandLogo: document.getElementById("brandLogo").value.trim(),
     mainOutput: document.getElementById("mainOutput").value || "board",
     outputDesign: document.getElementById("outputDesign").value || "classic",
@@ -1263,8 +1263,8 @@ async function postSettings(out){
   try{
     const clearIcs = icsUrlEdited && !(out.outlookIcsUrl || "").trim();
     const endpoint = clearIcs
-      ? "/api/lhc-events-board/settings?clearOutlookIcs=true"
-      : "/api/lhc-events-board/settings";
+      ? "/api/event-board/settings?clearOutlookIcs=true"
+      : "/api/event-board/settings";
      const r = await fetch(endpoint, {
        method: "POST", headers: authHeaders(),
        body: JSON.stringify(out)});
@@ -1328,7 +1328,7 @@ async function uploadBrandLogo(){
   const rd = new FileReader();
   rd.onload = async () => {
     try{
-      const r = await fetch("/api/lhc-events-board/photos/upload", {
+      const r = await fetch("/api/event-board/photos/upload", {
         method: "POST", headers: authHeaders(),
         body: JSON.stringify({filename: f.name, data: rd.result})});
       if(checkAuthResponse(r)) return;
@@ -1362,7 +1362,7 @@ function upload(){
       document.getElementById("photoFile").value = "";
       if(ok > 0){
         try{
-          const pr = await fetch("/api/lhc-events-board/photos");
+          const pr = await fetch("/api/event-board/photos");
           if(pr.ok) currentPhotos = await pr.json();
         }catch(e){}
         const out = collectSettings();
@@ -1378,7 +1378,7 @@ function upload(){
     const rd = new FileReader();
     rd.onload = async () => {
       try{
-         const r = await fetch("/api/lhc-events-board/photos/upload", {
+         const r = await fetch("/api/event-board/photos/upload", {
            method: "POST", headers: authHeaders(),
            body: JSON.stringify({filename: f.name, data: rd.result})});
          if(checkAuthResponse(r)) return;
@@ -1410,7 +1410,7 @@ function uploadLobby(){
       document.getElementById("lobbyPhotoFile").value = "";
       if(ok > 0){
         try{
-          const pr = await fetch("/api/lhc-events-board/photos");
+          const pr = await fetch("/api/event-board/photos");
           if(pr.ok) currentPhotos = await pr.json();
         }catch(e){}
         const names = currentPhotos.map(p => p.substring(p.lastIndexOf("/") + 1));
@@ -1431,7 +1431,7 @@ function uploadLobby(){
     const rd = new FileReader();
     rd.onload = async () => {
       try{
-         const r = await fetch("/api/lhc-events-board/photos/upload", {
+         const r = await fetch("/api/event-board/photos/upload", {
            method: "POST", headers: authHeaders(),
            body: JSON.stringify({filename: f.name, data: rd.result})});
          if(checkAuthResponse(r)) return;

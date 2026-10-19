@@ -1,7 +1,7 @@
 {
-  "ticker": "Welcome to LIFE HOPE CENTER  •  Sunday Service 9:00 AM  •  Midweek Prayer Wednesday 6PM  •  Press F11 for fullscreen",
+  "ticker": "Welcome to EVENT BOARD  •  Sunday Service 9:00 AM  •  Midweek Prayer Wednesday 6PM  •  Press F11 for fullscreen",
   "announcements": [
-    {"title": "Welcome!", "sub": "LIFE HOPE CENTER — To God be the glory"},
+    {"title": "Welcome!", "sub": "EVENT BOARD — To God be the glory"},
     {"title": "Sunday Service 9:00 AM", "sub": "Bring your family and friends"},
     {"title": "Midweek Prayer — Wed 6PM", "sub": "Let us pray together"}
   ],
@@ -29,8 +29,7 @@
   "photoAnnouncements": {},
   "photoFit": {},
   "theme": "default",
-  "brandName": "LIFE HOPE CENTER",
-  "brandName": "LIFE HOPE CENTER",
+  "brandName": "EVENT BOARD",
   "brandLogo": "",
   "lobbyTicker": "",
   "lobbyAnnouncements": [],
