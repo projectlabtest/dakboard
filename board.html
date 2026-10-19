@@ -294,6 +294,17 @@ function eventStatus(event){
   return "upcoming";
 }
 
+function boardTime(e){
+  const fmtT = v => new Intl.DateTimeFormat("en-PH",{timeZone:"Asia/Manila",hour:"numeric",minute:"2-digit",hour12:true}).format(new Date(v));
+  const dayK = v => new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(v));
+  const dF = v => new Intl.DateTimeFormat("en-PH",{timeZone:"Asia/Manila",weekday:"short",month:"short",day:"numeric"}).format(new Date(v));
+  const s = Date.parse(e.start || ""), en = Date.parse(e.end || "");
+  const base = e.time || (e.allDay ? "All day" : "");
+  if(e.allDay || !Number.isFinite(s) || !Number.isFinite(en) || en <= s) return base;
+  const endLabel = dayK(s) === dayK(en) ? fmtT(en) : dF(en) + " " + fmtT(en);
+  return base + " – " + endLabel;
+}
+
 function eventsForRoom(events, room){
   const wanted = normalizeRoomName(room && (room.location || room.name));
   return (events || []).filter(event => event
@@ -496,7 +507,7 @@ function renderEvents(){
     const isOngoing = !e.allDay && eventStatus(e) === "ongoing";
     d.className = "ev" + (e.date === today ? " today" : "") + (isOngoing ? " ongoing" : "");
     const head = document.createElement("b");
-    head.textContent = e.time || (e.allDay ? "All day" : "");
+    head.textContent = boardTime(e);
     if(e.date === today){
       const badge = document.createElement("span");
       badge.className = "ev-today";

@@ -303,6 +303,15 @@ function momentLabel(value, other){
   return sameManilaDate(value, other) ? time : formatDate(value) + " " + time;
 }
 
+function timeRange(event){
+  const s = Date.parse(event.start || ""), e = Date.parse(event.end || "");
+  const base = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
+  if(event.allDay || !Number.isFinite(s) || !Number.isFinite(e) || e <= s) return base;
+  const endLabel = sameManilaDate(s, e) ? formatTime(event.end)
+    : (formatDate(event.end) + " " + formatTime(event.end));
+  return base + " – " + endLabel;
+}
+
 function scheduledEvents(){
   return currentEvents
     .filter(event => event && eventStatus(event) !== "ended")
@@ -344,7 +353,7 @@ function renderRundownClassic(events){
     const isOngoing = !event.allDay && eventStatus(event) === "ongoing";
     d.className = "ev" + (eDate === today ? " today" : "") + (isOngoing ? " ongoing" : "");
     const head = document.createElement("b");
-    const baseTime = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
+    const baseTime = timeRange(event);
     head.textContent = (soloMode && eDate !== today && event.day)
       ? (event.day + " · " + baseTime) : baseTime;
     if(eDate === today){
@@ -411,7 +420,7 @@ function renderRundown(events){
     row.className = "ev-row" + (isOngoing ? " ongoing" : "");
     const head = document.createElement("div");
     head.className = "ev-head";
-    head.textContent = event.allDay ? "ALL DAY" : (event.time || momentLabel(event.start, event.end));
+    head.textContent = event.allDay ? "ALL DAY" : timeRange(event);
     const badge = document.createElement("span");
     badge.className = "ev-badge" + (isOngoing ? " ongoing" : "");
     badge.textContent = isOngoing ? "ON-GOING" : "UPCOMING";
