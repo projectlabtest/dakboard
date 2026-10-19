@@ -137,6 +137,22 @@
   body.portrait .next-panel{min-height:220px}
   body.portrait .info-row{grid-template-columns:1fr}
   body.design-split.portrait .info-row{grid-template-columns:1fr}
+  body.design-solo .primary,
+  body.design-solo .info-row,
+  body.design-solo .footer,
+  body.design-solo .ticker{display:none}
+  body.design-solo .room-main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+  body.design-solo .rundown-panel{overflow:hidden}
+  body.design-solo .panel-label{font-size:clamp(16px,2.4vmin,28px);letter-spacing:2.5px}
+  body.design-solo .upcoming-count{font-size:clamp(14px,2.1vmin,26px);font-weight:700;color:var(--muted)}
+  body.design-solo .events-date{font-size:clamp(16px,2.5vmin,32px);margin:clamp(10px,1.5vmin,18px) 0 4px}
+  body.design-solo .ev{font-size:clamp(20px,3.2vmin,40px);padding:clamp(12px,1.8vmin,22px) 0}
+  body.design-solo .ev b{font-size:clamp(17px,2.6vmin,33px)}
+  body.design-solo .ev-name{font-size:clamp(23px,3.7vmin,46px)}
+  body.design-solo .ev .loc{font-size:clamp(15px,2.4vmin,30px)}
+  body.design-solo .ev-today,
+  body.design-solo .ev-ongoing{font-size:clamp(11px,1.7vmin,21px);padding:2px 9px;border-radius:6px}
+  body.design-solo .empty{font-size:clamp(20px,3vmin,36px);font-weight:700;color:var(--muted)}
   @media(max-width:800px){
     .room-screen{padding:16px;gap:16px}
      .room-header{gap:12px}
@@ -195,6 +211,8 @@ let lastSettings = "";
 let lastRoomHtml = "";
 let lastPhotos = "";
 document.body.classList.toggle("portrait", query.get("orientation") === "portrait");
+document.body.classList.toggle("design-solo", query.get("design") === "solo");
+const soloMode = query.get("design") === "solo";
 
 function tick(){
   const now = new Date();
@@ -296,6 +314,7 @@ function manilaDateKey(){
 function renderRundownClassic(events){
   const rundown = document.getElementById("rundownList");
   const count = document.getElementById("rundownCount");
+  const keepScroll = rundown.scrollTop;
   rundown.replaceChildren();
   count.textContent = events.length + " scheduled";
   if(!events.length){
@@ -350,10 +369,11 @@ function renderRundownClassic(events){
     }
     rundown.appendChild(d);
   });
+  rundown.scrollTop = keepScroll;
 }
 
 function renderRundown(events){
-  if((settings.outputDesign || "classic") !== "split"){
+  if(soloMode || (settings.outputDesign || "classic") !== "split"){
     renderRundownClassic(events);
     return;
   }
@@ -589,6 +609,22 @@ function setBrandName(el, name){
   }
 }
 
+let soloScrollTimer = null;
+function startSoloScroll(){
+  if(!soloMode || soloScrollTimer) return;
+  const list = document.getElementById("rundownList");
+  let holdUntil = 0;
+  soloScrollTimer = setInterval(() => {
+    if(document.hidden || !list.isConnected) return;
+    const max = list.scrollHeight - list.clientHeight;
+    if(max <= 4){ if(list.scrollTop) list.scrollTop = 0; holdUntil = 0; return; }
+    if(Date.now() < holdUntil) return;
+    if(list.scrollTop >= max){ list.scrollTop = 0; return; }
+    list.scrollTop = Math.min(list.scrollTop + 2, max);
+    if(list.scrollTop >= max) holdUntil = Date.now() + 6000;
+  }, 50);
+}
+
 async function boot(){
   tick();
   setInterval(tick, 1000);
@@ -607,7 +643,8 @@ async function boot(){
   loadWeather();
   setInterval(loadWeather, 10 * 60 * 1000);
   await loadEvents();
-  await loadRoomSlides();
+  if(!soloMode) await loadRoomSlides();
+  startSoloScroll();
   const html = await fetchRoomHtml();
   if(html !== null) lastRoomHtml = html;
   try{
