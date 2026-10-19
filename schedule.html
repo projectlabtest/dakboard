@@ -85,6 +85,8 @@
   .ev-ongoing{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:#0d6b34;color:#fff;font-size:clamp(7px,.9vmin,10px);font-weight:800;letter-spacing:.4px}
   .ev-name{font-weight:800;color:#1e3f5c;font-size:clamp(14px,1.9vmin,21px);overflow-wrap:anywhere}
   .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);flex:1 1 0;min-height:0;max-height:none;overflow:auto}
+  .rundown-list,.rundown-panel,.panel{scrollbar-width:none;-ms-overflow-style:none}
+  .rundown-list::-webkit-scrollbar,.rundown-panel::-webkit-scrollbar,.panel::-webkit-scrollbar{display:none}
   .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
   .rundown-row:first-child{border-top:0}
   .rundown-row.is-this-room{background:rgba(79,143,85,.12)}
