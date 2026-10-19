@@ -213,12 +213,12 @@
 
   <div class="db-card">
     <button type="button" class="db-btn sec" id="devicesToggle" onclick="toggleDevicesPanel()">DEVICES — IP → OUTPUT</button>
-    <p style="font-size:12px;color:#777;margin:8px 0 0">Isang beses lang i-bookmark ng TV/RPI ang DEVICE URL; dito mo i-a-assign kung anong output ang ipapakita base sa IP — hindi mo na kailangang pumunta sa device.</p>
+    <p style="font-size:12px;color:#777;margin:8px 0 0">Isang beses lang i-bookmark ng TV/RPI ang DEVICE URL; dito mo i-a-assign kung anong output ang ipapakita base sa IP. AUTO-SAVE ang listahan — kahit i-refresh ang page, nandoon pa rin ang mga idinagdag na device; ang × lang ang nagtatanggal.</p>
   </div>
 
   <div class="db-card" id="devicesPanel" style="display:none">
     <h2>Device assignments</h2>
-    <p style="font-size:12px;color:#777;margin:0 0 10px">Ilagay ang IP ng device (makikita ang sarili nitong IP sa /event-board/device page nito), piliin ang output, tapos SAVE. Magre-refresh ang device sa loob ng 5 segundo; kapag nasa output na, ~2 segundo na lang bago magbago ang mga pagbabago.</p>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Ilagay ang IP ng device (makikita ang sarili nitong IP sa /event-board/device page nito) at piliin ang output — awtomatikong nase-save ang listahan kapag nag-type o nagpalit. Ang × (may kumpirmasyon) lang ang nag-aalis. Magre-refresh ang device sa loob ng 5 segundo; kapag nasa output na, ~2 segundo na lang bago magbago.</p>
     <label>DEVICE URL — i-bookmark ito sa browser ng TV/RPI</label>
     <input type="text" id="deviceUrl" readonly onclick="this.select()">
     <div id="devices" style="margin-top:10px"></div>
@@ -737,6 +737,26 @@ function toggleDevicesPanel(){
   p.style.display = (p.style.display === "none") ? "" : "none";
 }
 
+/* Devices auto-save: persists ONLY the devices list (everything else keeps its
+   last saved value), so refreshing the admin page never loses added TVs. */
+let deviceSaveTimer = null;
+function queueDeviceSave(){
+  if(deviceSaveTimer) clearTimeout(deviceSaveTimer);
+  deviceSaveTimer = setTimeout(() => { saveDevicesNow("Device assignment saved."); }, 800);
+}
+async function saveDevicesNow(message){
+  if(deviceSaveTimer){ clearTimeout(deviceSaveTimer); deviceSaveTimer = null; }
+  if(!S) return;
+  const out = Object.assign({}, S);
+  out.devices = collectDevices();
+  if(await postSettings(out)){
+    applySavedSettings(out);
+    if(message) status(message, "ok");
+  }else{
+    status("Device save failed.", "err");
+  }
+}
+
 const DEVICE_OUTPUTS = [
   ["board-landscape", "Main board — landscape"],
   ["board-portrait", "Main board — portrait"],
@@ -801,9 +821,18 @@ function addDevice(device){
   outSelect.addEventListener("change", roomVisible);
   roomVisible();
 
+  nameInput.addEventListener("input", queueDeviceSave);
+  ipInput.addEventListener("input", queueDeviceSave);
+  outSelect.addEventListener("change", queueDeviceSave);
+  roomSelect.addEventListener("change", queueDeviceSave);
+
   const remove = document.createElement("button");
   remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
-  remove.onclick = () => row.remove();
+  remove.onclick = () => {
+    if(!confirm("Remove this device from the list?")) return;
+    row.remove();
+    saveDevicesNow("Device removed from the list.");
+  };
   row.append(fields, remove);
   document.getElementById("devices").appendChild(row);
 }
