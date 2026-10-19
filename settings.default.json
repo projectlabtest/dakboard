@@ -25,6 +25,7 @@
     {"name": "Executive Room", "location": "Executive Room"},
     {"name": "Board Room", "location": "Board Room"}
   ],
+  "devices": [],
   "photoOrder": [],
   "photoAnnouncements": {},
   "photoFit": {},

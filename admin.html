@@ -212,6 +212,20 @@
   </div>
 
   <div class="db-card">
+    <button type="button" class="db-btn sec" id="devicesToggle" onclick="toggleDevicesPanel()">DEVICES — IP → OUTPUT</button>
+    <p style="font-size:12px;color:#777;margin:8px 0 0">Isang beses lang i-bookmark ng TV/RPI ang DEVICE URL; dito mo i-a-assign kung anong output ang ipapakita base sa IP — hindi mo na kailangang pumunta sa device.</p>
+  </div>
+
+  <div class="db-card" id="devicesPanel" style="display:none">
+    <h2>Device assignments</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Ilagay ang IP ng device (makikita ang sarili nitong IP sa /event-board/device page nito), piliin ang output, tapos SAVE. Magre-refresh ang device sa loob ng 5 segundo; kapag nasa output na, ~2 segundo na lang bago magbago ang mga pagbabago.</p>
+    <label>DEVICE URL — i-bookmark ito sa browser ng TV/RPI</label>
+    <input type="text" id="deviceUrl" readonly onclick="this.select()">
+    <div id="devices" style="margin-top:10px"></div>
+    <button type="button" class="db-btn sec" onclick="addDevice()">+ Add device</button>
+  </div>
+
+  <div class="db-card">
     <button type="button" class="db-btn" onclick="save()">SAVE — update the board</button>
   </div>
 
@@ -267,6 +281,7 @@ function applyOutputUrls(){
   document.getElementById("scheduleLandscapeUrl").value = SERVER_BASE + "/event-board/schedule?orientation=landscape";
   document.getElementById("schedulePortraitUrl").value = SERVER_BASE + "/event-board/schedule?orientation=portrait";
   document.getElementById("rundownPortraitUrl").value = SERVER_BASE + "/event-board/schedule?orientation=portrait&design=solo";
+  document.getElementById("deviceUrl").value = SERVER_BASE + "/event-board/device";
   updateRoomOutputUrls();
 }
 applyOutputUrls();
@@ -717,6 +732,103 @@ function collectRooms(){
   return rooms;
 }
 
+function toggleDevicesPanel(){
+  const p = document.getElementById("devicesPanel");
+  p.style.display = (p.style.display === "none") ? "" : "none";
+}
+
+const DEVICE_OUTPUTS = [
+  ["board-landscape", "Main board — landscape"],
+  ["board-portrait", "Main board — portrait"],
+  ["schedule-landscape", "Schedule + slideshow — landscape"],
+  ["schedule-portrait", "Schedule + slideshow — portrait"],
+  ["solo", "Event rundown only (solo) — portrait"],
+  ["room-landscape", "Room display — landscape"],
+  ["room-portrait", "Room display — portrait"],
+  ["slides-landscape", "Slides + ticker — landscape"],
+  ["slides-portrait", "Slides + ticker — portrait"]
+];
+
+function deviceField(labelText){
+  const field = document.createElement("div");
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  field.append(label);
+  return field;
+}
+
+function addDevice(device){
+  device = device || {name:"", ip:"", output:"board-landscape", room:""};
+  const row = document.createElement("div");
+  row.className = "db-room";
+  const fields = document.createElement("div");
+  fields.className = "db-room-fields";
+
+  const nameField = deviceField("DEVICE NAME");
+  const nameInput = document.createElement("input");
+  nameInput.type = "text"; nameInput.placeholder = "TV Lobby"; nameInput.value = device.name || "";
+  nameField.appendChild(nameInput);
+
+  const ipField = deviceField("IP ADDRESS");
+  const ipInput = document.createElement("input");
+  ipInput.type = "text"; ipInput.placeholder = "10.20.13.50"; ipInput.value = device.ip || "";
+  ipField.appendChild(ipInput);
+
+  const outField = deviceField("OUTPUT");
+  const outSelect = document.createElement("select");
+  outSelect.style.cssText = "width:100%;padding:7px;border:1px solid #bbb;border-radius:6px;font-size:13px;background:#fff";
+  DEVICE_OUTPUTS.forEach(opt => {
+    const o = document.createElement("option");
+    o.value = opt[0]; o.textContent = opt[1];
+    outSelect.appendChild(o);
+  });
+  outSelect.value = device.output || "board-landscape";
+  outField.appendChild(outSelect);
+
+  const roomField = deviceField("ROOM (room outputs)");
+  const roomSelect = document.createElement("select");
+  roomSelect.style.cssText = outSelect.style.cssText;
+  roomOutputNames().forEach(name => {
+    const o = document.createElement("option");
+    o.value = name; o.textContent = name;
+    roomSelect.appendChild(o);
+  });
+  if(device.room) roomSelect.value = device.room;
+  roomField.appendChild(roomSelect);
+
+  fields.append(nameField, ipField, outField, roomField);
+  const roomVisible = () => { roomField.style.display = outSelect.value.indexOf("room") === 0 ? "" : "none"; };
+  outSelect.addEventListener("change", roomVisible);
+  roomVisible();
+
+  const remove = document.createElement("button");
+  remove.type = "button"; remove.className = "db-btn danger"; remove.textContent = "×";
+  remove.onclick = () => row.remove();
+  row.append(fields, remove);
+  document.getElementById("devices").appendChild(row);
+}
+
+function renderDevices(){
+  const box = document.getElementById("devices");
+  box.innerHTML = "";
+  const devices = Array.isArray(S && S.devices) ? S.devices : [];
+  devices.forEach(device => addDevice(device));
+}
+
+function collectDevices(){
+  const devices = [];
+  document.querySelectorAll("#devices .db-room").forEach(row => {
+    const inputs = row.querySelectorAll(".db-room-fields input");
+    const selects = row.querySelectorAll(".db-room-fields select");
+    const name = inputs[0] ? inputs[0].value.trim() : "";
+    const ip = inputs[1] ? inputs[1].value.trim() : "";
+    const output = selects[0] ? selects[0].value : "board-landscape";
+    const room = selects[1] ? selects[1].value : "";
+    if(name && ip) devices.push({name:name, ip:ip, output:output, room:room});
+  });
+  return devices;
+}
+
 function esc(s){
   return String(s == null ? "" : s).replace(/&/g,"&amp;")
     .replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -737,6 +849,7 @@ async function load(){
     if(!Array.isArray(S.rooms)){
       S.rooms = DEFAULT_ROOMS.map(room => ({name:room.name, location:room.location}));
     }
+    if(!Array.isArray(S.devices)) S.devices = [];
     if(!S.photoAnnouncements || typeof S.photoAnnouncements !== "object" || Array.isArray(S.photoAnnouncements)){
       S.photoAnnouncements = {};
     }
@@ -772,6 +885,7 @@ async function load(){
   document.getElementById("theme").value = S.theme || "default";
   renderRooms();
   refreshRoomOutputSelect();
+  renderDevices();
   loadPhotos();
   document.getElementById("lobbyTicker").value = S.lobbyTicker || "";
   document.getElementById("lobbyAnns").value =
@@ -1245,6 +1359,7 @@ function collectSettings(){
     outputDesign: document.getElementById("outputDesign").value || "classic",
     theme: document.getElementById("theme").value || "default",
     rooms: collectRooms(),
+    devices: collectDevices(),
     photoOrder: order,
     photoAnnouncements: announcements,
     photoFit: photoFit,
