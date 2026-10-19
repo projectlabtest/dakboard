@@ -81,6 +81,8 @@
   .ev.today b{color:#1e3f5c}
   .ev .loc{color:#1e3f5c;font-size:clamp(10px,1.3vmin,14px);font-weight:800}
   .ev-today{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:var(--success);color:#fff;font-size:clamp(7px,.9vmin,10px)}
+  .ev.ongoing{background:rgba(47,143,85,.16);border-left:3px solid var(--success);padding-left:7px;margin:3px 0}
+  .ev-ongoing{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:#0d6b34;color:#fff;font-size:clamp(7px,.9vmin,10px);font-weight:800;letter-spacing:.4px}
   .ev-name{font-weight:800;color:#1e3f5c;font-size:clamp(14px,1.9vmin,21px);overflow-wrap:anywhere}
   .rundown-list{display:grid;margin-top:clamp(12px,2vmin,24px);flex:1 1 0;min-height:0;max-height:none;overflow:auto}
   .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
@@ -99,6 +101,7 @@
   .ev-badge{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:4px;font-size:clamp(9px,1.1vmin,12px);
     letter-spacing:.4px;background:rgba(42,107,155,.16);color:var(--yellow);vertical-align:middle}
   .ev-badge.ongoing{background:rgba(47,143,85,.18);color:var(--success)}
+  .ev-row.ongoing{background:rgba(47,143,85,.14);border-left:3px solid var(--success);padding-left:7px}
   .ev-title{font-size:clamp(14px,1.9vmin,21px);font-weight:800;color:#1e3f5c;overflow-wrap:anywhere}
   .ev-loc{color:#1e3f5c;font-size:clamp(11px,1.4vmin,15px);font-weight:800;overflow-wrap:anywhere}
   .upcoming-panel{min-width:0;border:2px solid var(--line);border-radius:18px;background:rgba(255,230,193,.88);padding:clamp(14px,2.2vmin,28px)}
@@ -314,13 +317,21 @@ function renderRundownClassic(events){
       lastDate = eDate;
     }
     const d = document.createElement("div");
-    d.className = "ev" + (eDate === today ? " today" : "");
+    const isOngoing = !event.allDay && eventStatus(event) === "ongoing";
+    d.className = "ev" + (eDate === today ? " today" : "") + (isOngoing ? " ongoing" : "");
     const head = document.createElement("b");
     head.textContent = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
     if(eDate === today){
       const badge = document.createElement("span");
       badge.className = "ev-today";
       badge.textContent = "TODAY";
+      head.appendChild(document.createTextNode(" "));
+      head.appendChild(badge);
+    }
+    if(isOngoing){
+      const badge = document.createElement("span");
+      badge.className = "ev-ongoing";
+      badge.textContent = "ON-GOING";
       head.appendChild(document.createTextNode(" "));
       head.appendChild(badge);
     }
@@ -368,14 +379,15 @@ function renderRundown(events){
       lastDate = event.date;
     }
     const statusValue = eventStatus(event);
+    const isOngoing = !event.allDay && statusValue === "ongoing";
     const row = document.createElement("div");
-    row.className = "ev-row";
+    row.className = "ev-row" + (isOngoing ? " ongoing" : "");
     const head = document.createElement("div");
     head.className = "ev-head";
     head.textContent = event.allDay ? "ALL DAY" : (event.time || momentLabel(event.start, event.end));
     const badge = document.createElement("span");
-    badge.className = "ev-badge" + (statusValue === "ongoing" ? " ongoing" : "");
-    badge.textContent = statusValue === "ongoing" ? "ON-GOING" : "UPCOMING";
+    badge.className = "ev-badge" + (isOngoing ? " ongoing" : "");
+    badge.textContent = isOngoing ? "ON-GOING" : "UPCOMING";
     head.appendChild(document.createTextNode(" "));
     head.appendChild(badge);
     const name = document.createElement("div");

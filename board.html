@@ -90,6 +90,8 @@
   .ev .loc{color:#1e3f5c;font-size:14px;font-weight:800}
   .ev.today{background:rgba(29,86,135,.12);border-left:3px solid var(--green);padding-left:7px;margin:3px 0}
   .ev.today b{color:#1e3f5c}
+  .ev.ongoing{background:rgba(47,143,85,.16);border-left:5px solid var(--green);padding-left:5px;margin:3px 0}
+  .ev-ongoing{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:#0d6b34;color:#fff;font-size:10px;font-weight:800;letter-spacing:.4px}
   .ev-today{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;background:var(--green);color:var(--rundown-text);font-size:10px}
   .ev-name{font-weight:800;color:#1e3f5c;font-size:19px;overflow-wrap:anywhere}
   .room-info{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:rgba(255,230,193,.78)}
@@ -489,13 +491,21 @@ function renderEvents(){
       lastDate = e.date;
     }
     const d = document.createElement("div");
-    d.className = "ev" + (e.date === today ? " today" : "");
+    const isOngoing = !e.allDay && eventStatus(e) === "ongoing";
+    d.className = "ev" + (e.date === today ? " today" : "") + (isOngoing ? " ongoing" : "");
     const head = document.createElement("b");
     head.textContent = e.time || (e.allDay ? "All day" : "");
     if(e.date === today){
       const badge = document.createElement("span");
       badge.className = "ev-today";
       badge.textContent = "TODAY";
+      head.appendChild(document.createTextNode(" "));
+      head.appendChild(badge);
+    }
+    if(isOngoing && !room){
+      const badge = document.createElement("span");
+      badge.className = "ev-ongoing";
+      badge.textContent = "ON-GOING";
       head.appendChild(document.createTextNode(" "));
       head.appendChild(badge);
     }
