@@ -96,6 +96,7 @@ public class DakBoard {
     try {
       String body = Files.readString(settings, StandardCharsets.UTF_8);
       String fixed = insertJsonFieldIfMissing(body, "rooms", defaultJsonField("rooms"));
+      fixed = insertJsonFieldIfMissing(fixed, "devices", defaultJsonField("devices"));
       if (!fixed.equals(body)) {
         Files.writeString(settings, fixed, StandardCharsets.UTF_8);
         System.out.println("Restored missing rooms list in settings.json");
@@ -111,6 +112,7 @@ public class DakBoard {
     server.createContext("/event-board/room", DakBoard::handleRoom);
     server.createContext("/event-board/schedule", DakBoard::handleSchedule);
     server.createContext("/event-board/slides", DakBoard::handleSlides);
+    server.createContext("/event-board/device", DakBoard::handleDevice);
     server.createContext("/event-board", DakBoard::handleBoard);
     server.createContext("/api/event-board/login", DakBoard::handleLogin);
     server.createContext("/api/event-board/logout", DakBoard::handleLogout);
@@ -171,6 +173,102 @@ public class DakBoard {
     String target = base + rest;
     if (query != null && !query.isEmpty()) target += "?" + query;
     redirect(ex, target);
+  }
+
+  /**
+   * Shared TV launcher: /event-board/device looks at the requesting device's IP
+   * (settings.devices) and redirects it to its assigned output, so a TV only ever
+   * needs to bookmark this one URL.
+   */
+  static void handleDevice(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String remote = "";
+    try {
+      remote = ex.getRemoteAddress().getAddress().getHostAddress();
+    } catch (Exception e) { /* keep empty */ }
+    if (remote.startsWith("::ffff:")) remote = remote.substring("::ffff:".length());
+    if (remote.equals("::1") || remote.equals("0:0:0:0:0:0:0:1")) remote = "127.0.0.1";
+    String target = null;
+    for (String device : splitJsonObjects(jsonRawField(readSettingsText(), "devices"))) {
+      String ip = jsonField(device, "ip");
+      if (ip != null && ip.equalsIgnoreCase(remote)) {
+        target = deviceTarget(device);
+        break;
+      }
+    }
+    if (target != null) { redirect(ex, target); return; }
+    String page = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        + "<meta http-equiv=\"refresh\" content=\"5\">"
+        + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        + "<title>Event Board \u2014 Device Setup</title>"
+        + "<style>body{font-family:Segoe UI,Arial,sans-serif;margin:0;min-height:100vh;"
+        + "display:flex;align-items:center;justify-content:center;"
+        + "background:linear-gradient(135deg,#e9a36b 0%,#8fb69b 60%,#789fbd 100%)}"
+        + ".card{background:#fff;border-radius:16px;padding:36px 40px;max-width:640px;margin:20px;"
+        + "box-shadow:0 18px 50px rgba(0,0,0,.25)}h1{font-size:22px;margin:0 0 14px;color:#173b63}"
+        + "p{font-size:15px;line-height:1.55;color:#315b7d;margin:10px 0}"
+        + ".ip{font-family:Consolas,monospace;font-size:30px;font-weight:800;background:#eef4fb;"
+        + "border:2px dashed #789fbd;border-radius:10px;padding:12px 18px;color:#1d5687;"
+        + "text-align:center;user-select:all}</style></head><body><div class=\"card\">"
+        + "<h1>Device not yet assigned</h1>"
+        + "<p>This device has no assignment yet. In the Admin page, open "
+        + "<b>DEVICES \u2014 IP \u2192 OUTPUT</b>, add this IP address, choose its output, then press "
+        + "SAVE. This page refreshes itself every 5 seconds.</p>"
+        + "<p>IP address of this device:</p><div class=\"ip\">" + remote + "</div>"
+        + "</div></body></html>";
+    send(ex, 200, page, "text/html; charset=utf-8");
+  }
+
+  /** Maps one settings.devices entry to the output URL it should open. */
+  static String deviceTarget(String device) {
+    String out = jsonField(device, "output");
+    String room = jsonField(device, "room");
+    if ("room-landscape".equals(out) || "room-portrait".equals(out)) {
+      String orientation = "room-portrait".equals(out) ? "portrait" : "landscape";
+      return "/event-board/room?orientation=" + orientation
+          + "&room=" + urlEncodePath(room == null ? "" : room);
+    }
+    if ("board-portrait".equals(out)) return "/event-board?orientation=portrait";
+    if ("board-landscape".equals(out)) return "/event-board?orientation=landscape";
+    if ("schedule-portrait".equals(out)) return "/event-board/schedule?orientation=portrait";
+    if ("solo".equals(out)) return "/event-board/schedule?orientation=portrait&design=solo";
+    if ("slides-landscape".equals(out)) return "/event-board/slides?orientation=landscape";
+    if ("slides-portrait".equals(out)) return "/event-board/slides?orientation=portrait";
+    return "/event-board/schedule?orientation=landscape";
+  }
+
+  static String urlEncodePath(String value) {
+    return value.trim().replace("&", "%26").replace("#", "%23")
+        .replace("?", "%3F").replace("+", "%2B").replace(" ", "%20");
+  }
+
+  /** Splits a raw JSON array string into its top-level object fragments. */
+  static List<String> splitJsonObjects(String arrayRaw) {
+    List<String> out = new ArrayList<>();
+    if (arrayRaw == null) return out;
+    int depth = 0;
+    int start = -1;
+    boolean inString = false;
+    boolean escaped = false;
+    for (int i = 0; i < arrayRaw.length(); i++) {
+      char c = arrayRaw.charAt(i);
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (c == '\\') escaped = true;
+        else if (c == '"') inString = false;
+        continue;
+      }
+      if (c == '"') { inString = true; continue; }
+      if (c == '{') { if (depth == 0) start = i; depth++; }
+      else if (c == '}') {
+        depth--;
+        if (depth == 0 && start >= 0) {
+          out.add(arrayRaw.substring(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+    return out;
   }
 
   static void handleBoard(HttpExchange ex) throws IOException {
@@ -471,6 +569,8 @@ public class DakBoard {
       String current = readSettingsText();
       body = insertJsonFieldIfMissing(body, "rooms",
           firstPresent(jsonRawField(current, "rooms"), defaultJsonField("rooms")));
+      body = insertJsonFieldIfMissing(body, "devices",
+          firstPresent(jsonRawField(current, "devices"), defaultJsonField("devices")));
       body = insertJsonFieldIfMissing(body, "photoOrder", jsonRawField(current, "photoOrder"));
       body = insertJsonFieldIfMissing(body, "photoAnnouncements",
           jsonRawField(current, "photoAnnouncements"));
