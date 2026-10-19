@@ -148,9 +148,12 @@
   body.design-solo .panel-label{font-size:clamp(16px,2.4vmin,28px);letter-spacing:2.5px}
   body.design-solo .upcoming-count{font-size:clamp(14px,2.1vmin,26px);font-weight:700;color:var(--muted)}
   body.design-solo .events-date{font-size:clamp(16px,2.5vmin,32px);margin:clamp(10px,1.5vmin,18px) 0 4px}
-  body.design-solo .ev{font-size:clamp(20px,3.2vmin,40px);padding:clamp(12px,1.8vmin,22px) 0}
+  body.design-solo .rundown-list{align-content:start}
+  body.design-solo .ev{font-size:clamp(20px,3.2vmin,40px);padding:clamp(8px,1.2vmin,14px) 0;line-height:1.2}
   body.design-solo .ev b{font-size:clamp(17px,2.6vmin,33px)}
-  body.design-solo .ev-name{font-size:clamp(23px,3.7vmin,46px)}
+  body.design-solo .ev-name{font-size:clamp(23px,3.7vmin,46px);line-height:1.12}
+  body.design-solo .ev .loc{font-size:clamp(15px,2.4vmin,30px);display:block}
+  body.design-solo .ev br{display:none}
   body.design-solo .ev .loc{font-size:clamp(15px,2.4vmin,30px)}
   body.design-solo .ev-today,
   body.design-solo .ev-ongoing{font-size:clamp(11px,1.7vmin,21px);padding:2px 9px;border-radius:6px}
@@ -330,7 +333,7 @@ function renderRundownClassic(events){
   let lastDate = "";
   events.slice(0, 25).forEach(event => {
     const eDate = event.date || "";
-    if(eDate && eDate !== lastDate){
+    if(!soloMode && eDate && eDate !== lastDate){
       const date = document.createElement("div");
       date.className = "events-date";
       date.textContent = (eDate === today ? "TODAY • " : "") + (event.day || event.date || "");
@@ -341,7 +344,9 @@ function renderRundownClassic(events){
     const isOngoing = !event.allDay && eventStatus(event) === "ongoing";
     d.className = "ev" + (eDate === today ? " today" : "") + (isOngoing ? " ongoing" : "");
     const head = document.createElement("b");
-    head.textContent = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
+    const baseTime = event.time || (event.allDay ? "All day" : momentLabel(event.start, event.end));
+    head.textContent = (soloMode && eDate !== today && event.day)
+      ? (event.day + " · " + baseTime) : baseTime;
     if(eDate === today){
       const badge = document.createElement("span");
       badge.className = "ev-today";
