@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LHC Events Board — Admin Login</title>
+<title>Event Board — Admin Login</title>
 <style>
   :root{--text:#173b63;--muted:#315b7d;--line:#2f8f55;--card:#fff4e2;--blue:#1d5687;--blue-dark:#123c62}
   *{box-sizing:border-box}
@@ -23,8 +23,8 @@
 </head>
 <body>
 <main class="login-card">
-  <div class="brand">LIFE HOPE CENTER</div>
-  <h1>LHC Events Board</h1>
+  <div class="brand">EVENT BOARD</div>
+  <h1>Event Board</h1>
   <p class="intro">Sign in to manage the display, rooms, events, and photos.</p>
   <form id="loginForm">
     <label for="username">USERNAME</label>
@@ -40,14 +40,14 @@
 <script>
 const form=document.getElementById("loginForm");
 const message=document.getElementById("message");
-document.getElementById("next").value=new URLSearchParams(location.search).get("next")||"/lhc-events-board/admin";
+document.getElementById("next").value=new URLSearchParams(location.search).get("next")||"/event-board/admin";
 form.addEventListener("submit",async event=>{
   event.preventDefault();
   message.textContent="";
   const button=form.querySelector("button");
   button.disabled=true;
   try{
-    const response=await fetch("/api/lhc-events-board/login",{
+    const response=await fetch("/api/event-board/login",{
       method:"POST",
       headers:{"Content-Type":"application/x-www-form-urlencoded"},
       body:new URLSearchParams(new FormData(form)).toString(),
@@ -58,9 +58,9 @@ form.addEventListener("submit",async event=>{
       message.textContent=data.error||"Login failed.";
       return;
     }
-    location.href=data.next||"/lhc-events-board/admin";
+    location.href=data.next||"/event-board/admin";
   }catch(error){
-    message.textContent="Cannot reach the LHC Events Board server.";
+    message.textContent="Cannot reach the Event Board server.";
   }finally{
     button.disabled=false;
   }

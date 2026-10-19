@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LIFE HOPE CENTER — Event Schedule</title>
+<title>Event Board — Schedule</title>
 <style>
   :root{
     --bg:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%); --panel:#f5c48b; --panel-2:#b9d6b7; --text:#173b63;
@@ -177,7 +177,7 @@
 <div class="room-screen">
   <header class="room-header">
     <div>
-      <div class="brand"><img class="brand-logo" alt="" hidden><span class="brand-text">LIFE HOPE CENTER</span></div>
+      <div class="brand"><img class="brand-logo" alt="" hidden><span class="brand-text">EVENT BOARD</span></div>
     </div>
     <div class="time-block">
       <div class="clock" id="clock">--:--</div>
@@ -439,7 +439,7 @@ function renderRundown(events){
 
 async function fetchSettings(){
   try{
-    const response = await fetch("/api/lhc-events-board/settings?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch("/api/event-board/settings?ts=" + Date.now(), {cache:"no-store"});
     if(!response.ok) return null;
     const text = await response.text();
     try{ settings = JSON.parse(text); }catch(e){}
@@ -449,7 +449,7 @@ async function fetchSettings(){
 
 async function loadEvents(){
   try{
-    const response = await fetch("/api/lhc-events-board/events?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch("/api/event-board/events?ts=" + Date.now(), {cache:"no-store"});
     if(!response.ok) return;
     const data = await response.json();
     currentEvents = Array.isArray(data) ? data : [];
@@ -466,7 +466,7 @@ async function loadRoomSlides(){
   const box = document.getElementById("roomSlides");
   let photos = [];
   try{
-    const response = await fetch("/api/lhc-events-board/photos");
+    const response = await fetch("/api/event-board/photos");
     if(response.ok) photos = await response.json();
   }catch(e){}
   const brandFile = (settings.brandLogo || "").trim();
@@ -592,7 +592,7 @@ async function checkSettings(){
   }
   if(text !== null) lastSettings = text;
   try{
-    const response = await fetch("/api/lhc-events-board/photos?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch("/api/event-board/photos?ts=" + Date.now(), {cache:"no-store"});
     if(response.ok){
       const photosText = await response.text();
       if(lastPhotos && photosText !== lastPhotos){
@@ -606,7 +606,7 @@ async function checkSettings(){
 
 /* Brand name: last word letters spread edge-to-edge under the top line */
 function setBrandName(el, name){
-  const words = (name || "LIFE HOPE CENTER").trim().split(/\s+/);
+  const words = (name || "EVENT BOARD").trim().split(/\s+/);
   el.replaceChildren();
   if(words.length >= 2){
     const top = document.createElement("span");
@@ -631,8 +631,8 @@ async function boot(){
   const text = await fetchSettings();
   if(text !== null) lastSettings = text;
   document.body.classList.toggle("design-split", settings.outputDesign === "split");
-  document.getElementById("ticker-text").textContent = settings.ticker || "Welcome to LIFE HOPE CENTER";
-  setBrandName(document.querySelector(".brand-text"), settings.brandName || "LIFE HOPE CENTER");
+  document.getElementById("ticker-text").textContent = settings.ticker || "Welcome to EVENT BOARD";
+  setBrandName(document.querySelector(".brand-text"), settings.brandName || "EVENT BOARD");
   document.body.classList.toggle("theme-dark", ((settings && settings.theme) || "default") === "dark");
   if(settings.brandLogo){
     const bi = document.querySelector(".brand-logo");
@@ -647,7 +647,7 @@ async function boot(){
   const html = await fetchRoomHtml();
   if(html !== null) lastRoomHtml = html;
   try{
-    const response = await fetch("/api/lhc-events-board/photos?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch("/api/event-board/photos?ts=" + Date.now(), {cache:"no-store"});
     if(response.ok) lastPhotos = await response.text();
   }catch(e){}
   setInterval(loadEvents, 30000);

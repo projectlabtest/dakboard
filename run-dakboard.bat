@@ -1,5 +1,5 @@
 @echo off
-REM LIFE HOPE CENTER DAKboard (Java) - double-click to start
+REM Event Board (DAKboard) - double-click to start
 cd /d "%~dp0"
 if exist "admin-credential.json" (
   echo Using the password you set from the admin page (Change Password).
