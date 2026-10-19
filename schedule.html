@@ -616,22 +616,6 @@ function setBrandName(el, name){
   }
 }
 
-let soloScrollTimer = null;
-function startSoloScroll(){
-  if(!soloMode || soloScrollTimer) return;
-  const list = document.getElementById("rundownList");
-  let holdUntil = 0;
-  soloScrollTimer = setInterval(() => {
-    if(document.hidden || !list.isConnected) return;
-    const max = list.scrollHeight - list.clientHeight;
-    if(max <= 4){ if(list.scrollTop) list.scrollTop = 0; holdUntil = 0; return; }
-    if(Date.now() < holdUntil) return;
-    if(list.scrollTop >= max){ list.scrollTop = 0; return; }
-    list.scrollTop = Math.min(list.scrollTop + 2, max);
-    if(list.scrollTop >= max) holdUntil = Date.now() + 6000;
-  }, 50);
-}
-
 async function boot(){
   tick();
   setInterval(tick, 1000);
@@ -651,7 +635,6 @@ async function boot(){
   setInterval(loadWeather, 10 * 60 * 1000);
   await loadEvents();
   if(!soloMode) await loadRoomSlides();
-  startSoloScroll();
   const html = await fetchRoomHtml();
   if(html !== null) lastRoomHtml = html;
   try{
