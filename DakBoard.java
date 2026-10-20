@@ -113,6 +113,7 @@ public class DakBoard {
     server.createContext("/event-board/schedule", DakBoard::handleSchedule);
     server.createContext("/event-board/slides", DakBoard::handleSlides);
     server.createContext("/event-board/device", DakBoard::handleDevice);
+    server.createContext("/api/event-board/device-route", DakBoard::handleDeviceRoute);
     server.createContext("/event-board", DakBoard::handleBoard);
     server.createContext("/api/event-board/login", DakBoard::handleLogin);
     server.createContext("/api/event-board/logout", DakBoard::handleLogout);
@@ -182,20 +183,8 @@ public class DakBoard {
    */
   static void handleDevice(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
-    String remote = "";
-    try {
-      remote = ex.getRemoteAddress().getAddress().getHostAddress();
-    } catch (Exception e) { /* keep empty */ }
-    if (remote.startsWith("::ffff:")) remote = remote.substring("::ffff:".length());
-    if (remote.equals("::1") || remote.equals("0:0:0:0:0:0:0:1")) remote = "127.0.0.1";
-    String target = null;
-    for (String device : splitJsonObjects(jsonRawField(readSettingsText(), "devices"))) {
-      String ip = jsonField(device, "ip");
-      if (ip != null && ip.equalsIgnoreCase(remote)) {
-        target = deviceTarget(device);
-        break;
-      }
-    }
+    String remote = clientIp(ex);
+    String target = deviceTargetForIp(remote);
     if (target != null) { redirect(ex, target); return; }
     String page = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         + "<meta http-equiv=\"refresh\" content=\"5\">"
@@ -217,6 +206,41 @@ public class DakBoard {
         + "<p>IP address of this device:</p><div class=\"ip\">" + remote + "</div>"
         + "</div></body></html>";
     send(ex, 200, page, "text/html; charset=utf-8");
+  }
+
+  /**
+   * JSON used by every TV output page (polled every 2s): returns {"target":"..."}
+   * for the requesting device's assigned output URL, or {"target":null}. Outputs
+   * reload themselves when the assignment changes, so TVs follow the admin list.
+   */
+  static void handleDeviceRoute(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String target = deviceTargetForIp(clientIp(ex));
+    String json = target == null ? "{\"target\":null}"
+        : "{\"target\":\"" + jsonEscape(target) + "\"}";
+    send(ex, 200, json, "application/json; charset=utf-8");
+  }
+
+  /** Normalized requesting IP (strips IPv6-mapped prefix; loopback becomes 127.0.0.1). */
+  static String clientIp(HttpExchange ex) {
+    String remote = "";
+    try {
+      remote = ex.getRemoteAddress().getAddress().getHostAddress();
+    } catch (Exception e) { /* keep empty */ }
+    if (remote.startsWith("::ffff:")) remote = remote.substring("::ffff:".length());
+    if (remote.equals("::1") || remote.equals("0:0:0:0:0:0:0:1")) remote = "127.0.0.1";
+    return remote;
+  }
+
+  /** Assigned output URL for an IP, or null when the IP has no device entry. */
+  static String deviceTargetForIp(String ip) {
+    for (String device : splitJsonObjects(jsonRawField(readSettingsText(), "devices"))) {
+      String deviceIp = jsonField(device, "ip");
+      if (deviceIp != null && deviceIp.equalsIgnoreCase(ip)) {
+        return deviceTarget(device);
+      }
+    }
+    return null;
   }
 
   /** Maps one settings.devices entry to the output URL it should open. */

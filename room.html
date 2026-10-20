@@ -776,6 +776,14 @@ async function boot(){
   }catch(e){}
   setInterval(loadEvents, 30000);
   setInterval(checkSettings, 2000);
+  function checkDeviceRoute(){
+    fetch("/api/event-board/device-route?ts="+Date.now(),{cache:"no-store"})
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if(j && j.target && j.target !== location.pathname + location.search) location.replace(j.target); })
+      .catch(() => {});
+  }
+  setInterval(checkDeviceRoute, 2000);
+  checkDeviceRoute();
   window.addEventListener("focus", checkSettings);
   document.addEventListener("visibilitychange", () => {
     if(!document.hidden) checkSettings();
