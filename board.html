@@ -84,6 +84,11 @@
     animation:scroll 30s linear infinite}
   @keyframes scroll{to{transform:translateX(-100%)}}
   .events-date{font-size:14px;font-weight:800;color:#1e3f5c;margin:5px 0 2px;letter-spacing:.5px}
+  .date-box{border:2px solid var(--line);border-radius:14px;margin:7px 0 9px;background:rgba(255,255,255,.5)}
+  .date-box-head{font-size:13px;font-weight:800;letter-spacing:.6px;color:#fff4e8;background:var(--accent);padding:5px 12px;border-radius:12px 12px 0 0}
+  .date-box-body{padding:0 12px}
+  body.theme-dark .date-box{background:rgba(255,255,255,.07)}
+  body.theme-dark .date-box-head{color:#0d1f33;border-radius:12px 12px 0 0}
   .ev{padding:9px 0;border-top:1px solid var(--line);font-size:18px;font-weight:700;color:#1e3f5c}
   .ev:first-child{border-top:0}
   .ev b{color:#1e3f5c;font-size:16px;font-weight:800}
@@ -495,12 +500,18 @@ function renderEvents(){
   }
   const today = manilaDateKey();
   let lastDate = "";
+  let dateBody = null;
   (room ? visible.slice(0, 8) : visible).forEach(e => {
-    if(e.date !== lastDate){
+    if(e.date && e.date !== lastDate){
+      const boxEl = document.createElement("div");
+      boxEl.className = "date-box";
       const date = document.createElement("div");
-      date.className = "events-date";
+      date.className = "date-box-head";
       date.textContent = (e.date === today ? "TODAY • " : "") + (e.day || e.date || "");
-      box.appendChild(date);
+      dateBody = document.createElement("div");
+      dateBody.className = "date-box-body";
+      boxEl.append(date, dateBody);
+      box.appendChild(boxEl);
       lastDate = e.date;
     }
     const d = document.createElement("div");
@@ -543,7 +554,7 @@ function renderEvents(){
       loc.textContent = e.location;
       d.appendChild(loc);
     }
-    box.appendChild(d);
+    (dateBody || box).appendChild(d);
   });
   card.style.display = "";
 }

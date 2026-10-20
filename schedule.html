@@ -76,6 +76,11 @@
   .next-panel{display:flex;flex-direction:column;justify-content:center;min-height:clamp(220px,38vh,480px);background:linear-gradient(145deg,var(--panel-2),#a9c9dc)}
   .rundown-panel{justify-content:flex-start;background:rgba(255,230,193,.88);min-height:0}
   .events-date{font-size:clamp(10px,1.35vmin,14px);font-weight:800;color:#1e3f5c;margin:5px 0 2px;letter-spacing:.5px}
+  .date-box{border:2px solid var(--line);border-radius:14px;margin:6px 0 8px;background:rgba(255,255,255,.5)}
+  .date-box-head{font-size:clamp(10px,1.35vmin,14px);font-weight:800;letter-spacing:.6px;color:#fff4e8;background:var(--accent);padding:5px 12px;border-radius:12px 12px 0 0}
+  .date-box-body{padding:2px 12px 6px}
+  body.theme-dark .date-box{background:rgba(255,255,255,.07)}
+  body.theme-dark .date-box-head{color:#0d1f33;border-radius:12px 12px 0 0}
   .ev{padding:clamp(4px,1vmin,9px) 0;border-top:1px solid var(--line);font-size:clamp(13px,1.8vmin,18px);font-weight:700;color:#1e3f5c}
   .ev b{color:#1e3f5c;font-size:clamp(11px,1.5vmin,16px);font-weight:800}
   .ev.today b{color:#1e3f5c}
@@ -340,13 +345,19 @@ function renderRundownClassic(events){
   }
   const today = manilaDateKey();
   let lastDate = "";
+  let dateBody = null;
   events.slice(0, 25).forEach(event => {
     const eDate = event.date || "";
     if(!soloMode && eDate && eDate !== lastDate){
+      const boxEl = document.createElement("div");
+      boxEl.className = "date-box";
       const date = document.createElement("div");
-      date.className = "events-date";
+      date.className = "date-box-head";
       date.textContent = (eDate === today ? "TODAY • " : "") + (event.day || event.date || "");
-      rundown.appendChild(date);
+      dateBody = document.createElement("div");
+      dateBody.className = "date-box-body";
+      boxEl.append(date, dateBody);
+      rundown.appendChild(boxEl);
       lastDate = eDate;
     }
     const d = document.createElement("div");
@@ -383,7 +394,7 @@ function renderRundownClassic(events){
       loc.textContent = event.location;
       d.appendChild(loc);
     }
-    rundown.appendChild(d);
+    (dateBody || rundown).appendChild(d);
   });
   rundown.scrollTop = keepScroll;
 }
@@ -406,12 +417,18 @@ function renderRundown(events){
   }
   const today = manilaDateKey();
   let lastDate = "";
+  let dateBody = null;
   events.slice(0, 25).forEach(event => {
     if(event.date && event.date !== lastDate){
+      const boxEl = document.createElement("div");
+      boxEl.className = "date-box";
       const date = document.createElement("div");
-      date.className = "ev-date";
+      date.className = "date-box-head";
       date.textContent = (event.date === today ? "TODAY • " : "") + (event.day || formatDate(event.start));
-      rundown.appendChild(date);
+      dateBody = document.createElement("div");
+      dateBody.className = "date-box-body";
+      boxEl.append(date, dateBody);
+      rundown.appendChild(boxEl);
       lastDate = event.date;
     }
     const statusValue = eventStatus(event);
@@ -433,7 +450,7 @@ function renderRundown(events){
     loc.className = "ev-loc";
     loc.textContent = event.location || "Unassigned";
     row.append(head, name, loc);
-    rundown.appendChild(row);
+    (dateBody || rundown).appendChild(row);
   });
 }
 
