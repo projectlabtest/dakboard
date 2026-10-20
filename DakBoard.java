@@ -75,10 +75,15 @@ public class DakBoard {
     final String csrf;
     final long expiresAt;
     final String role;
+    final String client;
     Session(String tokenCsrf, String role) {
+      this(tokenCsrf, role, null);
+    }
+    Session(String tokenCsrf, String role, String client) {
       csrf = tokenCsrf;
       expiresAt = System.currentTimeMillis() + SESSION_TTL_SECONDS * 1000L;
       this.role = role == null ? "editor" : role;
+      this.client = client;
     }
   }
 
@@ -89,6 +94,7 @@ public class DakBoard {
     }
     SERVER_PORT = port;
     Files.createDirectories(ROOT.resolve("photos"));
+    Files.createDirectories(ROOT.resolve("clients"));
     Path settings = ROOT.resolve("settings.json");
     if (!Files.exists(settings)) {
       Files.copy(ROOT.resolve("settings.default.json"), settings);
@@ -115,6 +121,8 @@ public class DakBoard {
     server.createContext("/event-board/device", DakBoard::handleDevice);
     server.createContext("/api/event-board/device-route", DakBoard::handleDeviceRoute);
     server.createContext("/event-board", DakBoard::handleBoard);
+    server.createContext("/c", DakBoard::handleClientPages);
+    server.createContext("/api/event-board/clients/signup", DakBoard::handleClientSignup);
     server.createContext("/api/event-board/login", DakBoard::handleLogin);
     server.createContext("/api/event-board/logout", DakBoard::handleLogout);
     server.createContext("/api/event-board/session", DakBoard::handleSession);
@@ -138,6 +146,8 @@ public class DakBoard {
     server.start();
     System.out.println("DAKboard running at http://localhost:" + port + "/event-board");
     System.out.println("Admin login at http://localhost:" + port + "/event-board/login");
+    System.out.println("Client boards: sign up at http://localhost:" + port + "/c"
+        + " \u2014 each board lives at /c/<name>");
     if (!authConfigured()) {
       System.out.println("Set DAKBOARD_ADMIN_PASSWORD before using the admin login.");
     } else if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) {
@@ -372,6 +382,24 @@ public class DakBoard {
     }
     String username = form.getOrDefault("username", "");
     String password = form.getOrDefault("password", "");
+    String client = form.getOrDefault("client", "").trim();
+    if (!client.isEmpty()) {
+      if (!clientCredentialsMatch(client, username, password)) {
+        send(ex, 401, "{\"error\":\"Invalid username or password.\"}", "application/json");
+        return;
+      }
+      cleanupSessions();
+      String token = randomToken();
+      String csrf = randomToken();
+      SESSIONS.put(token, new Session(csrf, "client", client));
+      setSessionCookie(ex, token, false);
+      String nextRaw = form.get("next");
+      String next = nextRaw == null || nextRaw.isEmpty()
+          ? "/c/" + client + "/admin" : safeNext(nextRaw);
+      send(ex, 200, "{\"ok\":true,\"role\":\"client\",\"client\":" + quoted(client)
+          + ",\"next\":" + quoted(next) + "}", "application/json");
+      return;
+    }
     String role = null;
     if (credentialsMatch(username, password)) {
       role = "admin";
@@ -415,6 +443,14 @@ public class DakBoard {
       send(ex, 401, "{\"error\":\"authentication required\"}", "application/json");
       return;
     }
+    if ("client".equals(session.role)) {
+      String client = session.client == null ? "" : session.client;
+      String clientUser = clientUsername(client);
+      send(ex, 200, "{\"authenticated\":true,\"username\":" + quoted(clientUser)
+          + ",\"role\":\"client\",\"client\":" + quoted(client)
+          + ",\"csrfToken\":" + quoted(session.csrf) + "}", "application/json");
+      return;
+    }
     String username = "admin".equals(session.role) ? adminUsername() : editorUsername();
     StringBuilder out = new StringBuilder("{\"authenticated\":true,\"username\":")
         .append(quoted(username))
@@ -430,6 +466,11 @@ public class DakBoard {
 
   static void handleChangePassword(HttpExchange ex) throws IOException {
     if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String pwClient = queryParam(ex.getRequestURI().getRawQuery(), "client");
+    if (pwClient != null) {
+      handleChangeClientPassword(ex, pwClient);
+      return;
+    }
     if (!requireAdmin(ex)) return;
     Session session = session(ex);
     if (!csrfMatches(ex, session)) {
@@ -557,11 +598,22 @@ public class DakBoard {
   }
 
   static void handleSettings(HttpExchange ex) throws IOException {
-    Path file = ROOT.resolve("settings.json");
+    String query = ex.getRequestURI().getRawQuery();
+    String client = queryParam(query, "client");
     if (method(ex, "GET")) {
       try {
-        String body = Files.readString(file, StandardCharsets.UTF_8);
         ex.getResponseHeaders().set("Cache-Control", "no-store");
+        if (client != null) {
+          if (!validClientSlug(client) || !Files.isRegularFile(clientSettingsFile(client))) {
+            send(ex, 404, "{\"error\":\"unknown board\"}", "application/json; charset=utf-8");
+            return;
+          }
+          String body = readClientSettings(client);
+          boolean owner = clientOwner(session(ex), client);
+          send(ex, 200, owner ? body : publicSettingsJson(body), "application/json; charset=utf-8");
+          return;
+        }
+        String body = Files.readString(ROOT.resolve("settings.json"), StandardCharsets.UTF_8);
         send(ex, 200, publicSettingsJson(body), "application/json; charset=utf-8");
       } catch (IOException e) {
         send(ex, 500, "{\"error\":\"settings unavailable\"}", "application/json");
@@ -575,6 +627,21 @@ public class DakBoard {
         send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
         return;
       }
+      if (session != null && "client".equals(session.role) && client == null) {
+        send(ex, 403, "{\"error\":\"client accounts can only edit their own board\"}",
+            "application/json");
+        return;
+      }
+      if (client != null) {
+        if (!validClientSlug(client) || !Files.isRegularFile(clientSettingsFile(client))) {
+          send(ex, 404, "{\"error\":\"unknown board\"}", "application/json");
+          return;
+        }
+        if (!clientOwner(session, client)) {
+          send(ex, 403, "{\"error\":\"forbidden\"}", "application/json");
+          return;
+        }
+      }
       String body = readBody(ex, 512 * 1024);
       if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
       String t = body.trim();
@@ -582,15 +649,16 @@ public class DakBoard {
         send(ex, 400, "{\"error\":\"invalid json\"}", "application/json");
         return;
       }
-      String query = ex.getRequestURI().getRawQuery();
-      boolean isAdmin = session != null && "admin".equals(session.role);
-      boolean clearOutlookIcs = isAdmin && query != null && query.contains("clearOutlookIcs=true");
+      boolean privileged = (session != null && "admin".equals(session.role))
+          || (client != null && session != null && "client".equals(session.role));
+      boolean clearOutlookIcs = privileged && query != null && query.contains("clearOutlookIcs=true");
       String submittedUrl = jsonField(body, "outlookIcsUrl");
       if(!clearOutlookIcs && (submittedUrl == null || submittedUrl.isEmpty())){
-        String currentUrl = settingsField("outlookIcsUrl");
+        String currentUrl = client != null
+            ? clientSettingsField(client, "outlookIcsUrl") : settingsField("outlookIcsUrl");
         if(!currentUrl.isEmpty()) body = putJsonStringField(body, "outlookIcsUrl", currentUrl);
       }
-      String current = readSettingsText();
+      String current = client != null ? readClientSettings(client) : readSettingsText();
       body = insertJsonFieldIfMissing(body, "rooms",
           firstPresent(jsonRawField(current, "rooms"), defaultJsonField("rooms")));
       body = insertJsonFieldIfMissing(body, "devices",
@@ -598,7 +666,7 @@ public class DakBoard {
       body = insertJsonFieldIfMissing(body, "photoOrder", jsonRawField(current, "photoOrder"));
       body = insertJsonFieldIfMissing(body, "photoAnnouncements",
           jsonRawField(current, "photoAnnouncements"));
-      if(!isAdmin){
+      if(!privileged){
         body = insertJsonFieldIfMissing(body, "slideSeconds", jsonRawField(current, "slideSeconds"));
         body = insertJsonFieldIfMissing(body, "weatherLat", jsonRawField(current, "weatherLat"));
         body = insertJsonFieldIfMissing(body, "weatherLon", jsonRawField(current, "weatherLon"));
@@ -606,7 +674,8 @@ public class DakBoard {
         body = insertJsonFieldIfMissing(body, "mainOutput", jsonRawField(current, "mainOutput"));
         body = insertJsonFieldIfMissing(body, "outputDesign", jsonRawField(current, "outputDesign"));
       }
-      Path tmp = ROOT.resolve("settings.json.tmp");
+      Path file = client != null ? clientSettingsFile(client) : ROOT.resolve("settings.json");
+      Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
       Files.write(tmp, body.getBytes(StandardCharsets.UTF_8));
       Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING,
           StandardCopyOption.ATOMIC_MOVE);
@@ -618,9 +687,14 @@ public class DakBoard {
 
   static void handlePhotos(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String client = queryParam(ex.getRequestURI().getRawQuery(), "client");
+    if (client != null && !validClientSlug(client)) {
+      send(ex, 400, "{\"error\":\"invalid client\"}", "application/json");
+      return;
+    }
     StringBuilder sb = new StringBuilder("[");
     boolean first = true;
-    for (String name : photoNames()) {
+    for (String name : photoNames(client)) {
       if (!first) sb.append(",");
       sb.append("\"/photos/").append(jsonEscape(name)).append("\"");
       first = false;
@@ -645,9 +719,36 @@ public class DakBoard {
   static void handleUpload(HttpExchange ex) throws IOException {
     if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     if (!requireApiAuth(ex)) return;
-    if (!csrfMatches(ex, session(ex))) {
+    Session upSession = session(ex);
+    if (!csrfMatches(ex, upSession)) {
       send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
       return;
+    }
+    String client = queryParam(ex.getRequestURI().getRawQuery(), "client");
+    if (upSession != null && "client".equals(upSession.role) && client == null) {
+      send(ex, 403, "{\"error\":\"client accounts can only edit their own board\"}",
+          "application/json");
+      return;
+    }
+    if (client != null) {
+      if (!validClientSlug(client) || !Files.isRegularFile(clientSettingsFile(client))) {
+        send(ex, 404, "{\"error\":\"unknown board\"}", "application/json");
+        return;
+      }
+      if (!clientOwner(upSession, client)) {
+        send(ex, 403, "{\"error\":\"forbidden\"}", "application/json");
+        return;
+      }
+    }
+    Path photoDir = ROOT.resolve("photos");
+    if (client != null) {
+      photoDir = photoDir.resolve(client);
+      try {
+        Files.createDirectories(photoDir);
+      } catch (IOException e) {
+        send(ex, 500, "{\"error\":\"could not create photo folder\"}", "application/json");
+        return;
+      }
     }
     String body = readBody(ex, MAX_BODY);
     if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
@@ -673,23 +774,41 @@ public class DakBoard {
       send(ex, 400, "{\"error\":\"invalid base64\"}", "application/json");
       return;
     }
-    Files.write(ROOT.resolve("photos").resolve(filename), bytes);
+    Files.write(photoDir.resolve(filename), bytes);
     send(ex, 200, "{\"ok\":true,\"file\":" + quoted(filename) + "}", "application/json");
   }
 
   static void handleDelete(HttpExchange ex) throws IOException {
     if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     if (!requireApiAuth(ex)) return;
-    if (!csrfMatches(ex, session(ex))) {
+    Session delSession = session(ex);
+    if (!csrfMatches(ex, delSession)) {
       send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
       return;
+    }
+    String client = queryParam(ex.getRequestURI().getRawQuery(), "client");
+    if (delSession != null && "client".equals(delSession.role) && client == null) {
+      send(ex, 403, "{\"error\":\"client accounts can only edit their own board\"}",
+          "application/json");
+      return;
+    }
+    if (client != null) {
+      if (!validClientSlug(client) || !Files.isRegularFile(clientSettingsFile(client))) {
+        send(ex, 404, "{\"error\":\"unknown board\"}", "application/json");
+        return;
+      }
+      if (!clientOwner(delSession, client)) {
+        send(ex, 403, "{\"error\":\"forbidden\"}", "application/json");
+        return;
+      }
     }
     String body = readBody(ex, 64 * 1024);
     if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
     String filename = sanitize(jsonField(body, "filename"));
-    Path file = ROOT.resolve("photos").resolve(filename == null ? "" : filename).normalize();
+    Path base = client == null ? ROOT.resolve("photos") : ROOT.resolve("photos").resolve(client);
+    Path file = base.resolve(filename == null ? "" : filename).normalize();
     if (filename == null || filename.isEmpty()
-        || !file.startsWith(ROOT.resolve("photos")) || !Files.isRegularFile(file)) {
+        || !file.startsWith(base) || !Files.isRegularFile(file)) {
       send(ex, 404, "{\"error\":\"photo not found\"}", "application/json");
       return;
     }
@@ -701,9 +820,16 @@ public class DakBoard {
 
   static final ZoneId MANILA = ZoneId.of("Asia/Manila");
   static final long EVENTS_CACHE_MS = 60L * 1000;
-  static String eventsCacheIcs = null;
-  static long eventsCacheAt = 0;
-  static String eventsCacheUrl = "";
+  static final Map<String, IcsEntry> ICS_CACHE = new ConcurrentHashMap<>();
+
+  static class IcsEntry {
+    final String ics;
+    final long at;
+    IcsEntry(String ics, long at) {
+      this.ics = ics;
+      this.at = at;
+    }
+  }
 
   static final Map<String, String> WINDOWS_TZ = new HashMap<>();
   static {
@@ -728,7 +854,15 @@ public class DakBoard {
 
   static void handleEvents(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
-    String url = settingsField("outlookIcsUrl");
+    String client = queryParam(ex.getRequestURI().getRawQuery(), "client");
+    String url = "";
+    if (client != null) {
+      if (validClientSlug(client) && Files.isRegularFile(clientSettingsFile(client))) {
+        url = clientSettingsField(client, "outlookIcsUrl");
+      }
+    } else {
+      url = settingsField("outlookIcsUrl");
+    }
     if (url.isEmpty()) { send(ex, 200, "[]", "application/json"); return; }
     String ics = cachedIcs(url);
     if (ics == null) { send(ex, 200, "[]", "application/json"); return; }
@@ -762,24 +896,337 @@ public class DakBoard {
     }
   }
 
+  // ---------------- per-client boards (/c/<name>) ----------------
+
+  static final Set<String> RESERVED_CLIENT_NAMES = Set.of(
+      "admin", "api", "c", "login", "logout", "editor", "room", "schedule", "slides",
+      "device", "devices", "photos", "events", "session", "password", "settings",
+      "clients", "signup", "server-info", "sample-events.ics", "event-board",
+      "lhc-events-board", "dakboard");
+
+  /** Lowercase slug: 3-32 chars, letters/digits/hyphens, not a reserved path. */
+  static boolean validClientSlug(String name) {
+    if (name == null || !name.matches("[a-z0-9][a-z0-9-]{1,30}[a-z0-9]")) return false;
+    return !RESERVED_CLIENT_NAMES.contains(name);
+  }
+
+  static Path clientSettingsFile(String name) {
+    if (!validClientSlug(name)) return ROOT.resolve("clients").resolve("__invalid__");
+    return ROOT.resolve("clients").resolve(name + ".json");
+  }
+
+  static Path clientLoginFile(String name) {
+    if (!validClientSlug(name)) return ROOT.resolve("clients").resolve("__invalid__");
+    return ROOT.resolve("clients").resolve(name + ".login");
+  }
+
+  static boolean clientExists(String name) {
+    return validClientSlug(name) && Files.isRegularFile(clientSettingsFile(name));
+  }
+
+  static String readClientSettings(String name) {
+    if (!validClientSlug(name)) return "";
+    try {
+      return Files.readString(clientSettingsFile(name), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      return "";
+    }
+  }
+
+  static String clientSettingsField(String name, String key) {
+    String v = jsonField(readClientSettings(name), key);
+    return v == null ? "" : v.trim();
+  }
+
+  /** True when the session may edit this client's board (platform admin, or its own client). */
+  static boolean clientOwner(Session s, String client) {
+    if (s == null || client == null) return false;
+    if ("admin".equals(s.role)) return true;
+    return "client".equals(s.role) && client.equals(s.client);
+  }
+
+  static String clientUsername(String client) {
+    try {
+      if (validClientSlug(client) && Files.isRegularFile(clientLoginFile(client))) {
+        String stored = Files.readString(clientLoginFile(client), StandardCharsets.UTF_8);
+        String name = jsonField(stored, "username");
+        if (name != null && !name.trim().isEmpty()) return name.trim();
+      }
+    } catch (IOException ignored) {
+      // fall through
+    }
+    return "";
+  }
+
+  static boolean clientCredentialsMatch(String client, String username, String password) {
+    if (!validClientSlug(client) || password == null || password.isEmpty()) return false;
+    if (!Files.isRegularFile(clientLoginFile(client))) return false;
+    try {
+      String stored = Files.readString(clientLoginFile(client), StandardCharsets.UTF_8);
+      String user = jsonField(stored, "username");
+      byte[] expectedUser = (user == null ? "" : user).getBytes(StandardCharsets.UTF_8);
+      byte[] actualUser = (username == null ? "" : username).getBytes(StandardCharsets.UTF_8);
+      if (!MessageDigest.isEqual(expectedUser, actualUser)) return false;
+      String salt = jsonField(stored, "salt");
+      String hash = jsonField(stored, "hash");
+      String iterations = jsonField(stored, "iterations");
+      if (salt == null || hash == null || iterations == null) return false;
+      byte[] expected = Base64.getDecoder().decode(hash);
+      byte[] actual = derive(password, Base64.getDecoder().decode(salt),
+          Integer.parseInt(iterations.trim()));
+      return MessageDigest.isEqual(expected, actual);
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  /** Value of a query parameter (decoded), or null when absent. */
+  static String queryParam(String query, String name) {
+    if (query == null) return null;
+    for (String part : query.split("&")) {
+      int eq = part.indexOf('=');
+      String key = eq < 0 ? part : part.substring(0, eq);
+      if (name.equals(key)) {
+        if (eq < 0) return "";
+        try {
+          return URLDecoder.decode(part.substring(eq + 1), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+          return "";
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Client password change: POST /api/event-board/password?client=<name>. */
+  static void handleChangeClientPassword(HttpExchange ex, String client) throws IOException {
+    if (!clientExists(client)) {
+      send(ex, 404, "{\"error\":\"unknown board\"}", "application/json");
+      return;
+    }
+    Session session = session(ex);
+    if (session == null) {
+      send(ex, 401, "{\"error\":\"authentication required\"}", "application/json");
+      return;
+    }
+    if (!clientOwner(session, client)) {
+      send(ex, 403, "{\"error\":\"forbidden\"}", "application/json");
+      return;
+    }
+    if (!csrfMatches(ex, session)) {
+      send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
+      return;
+    }
+    String body = readBody(ex, 8 * 1024);
+    if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
+    String current = jsonField(body, "currentPassword");
+    String next = jsonField(body, "newPassword");
+    if (current == null || next == null) {
+      send(ex, 400, "{\"error\":\"missing password field\"}", "application/json");
+      return;
+    }
+    if (next.length() < MIN_PASSWORD_LENGTH) {
+      send(ex, 400, "{\"error\":\"Password must be at least " + MIN_PASSWORD_LENGTH
+          + " characters.\"}", "application/json");
+      return;
+    }
+    String user = clientUsername(client);
+    if (!clientCredentialsMatch(client, user, current)) {
+      send(ex, 400, "{\"error\":\"Current password is incorrect.\"}", "application/json");
+      return;
+    }
+    try {
+      saveCredentialJson("clients/" + client + ".login", user, next);
+    } catch (Exception e) {
+      send(ex, 500, "{\"error\":\"Could not save the password.\"}", "application/json");
+      return;
+    }
+    String keepToken = cookieValue(ex, SESSION_COOKIE);
+    SESSIONS.entrySet().removeIf(entry ->
+        !entry.getKey().equals(keepToken)
+            && "client".equals(entry.getValue().role)
+            && client.equals(entry.getValue().client));
+    send(ex, 200, "{\"ok\":true,\"message\":\"Password updated.\"}", "application/json");
+  }
+
+  /**
+   * /c sign-up landing page and client board pages:
+   *   GET /c                      -> sign-up page
+   *   GET /c/<name>               -> board (or schedule, per client mainOutput)
+   *   GET /c/<name>/schedule|room|slides -> the matching TV output
+   *   GET /c/<name>/admin         -> client's own admin page (requires client login)
+   */
+  static void handleClientPages(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String path = ex.getRequestURI().getPath();
+    if (path.equals("/c") || path.equals("/c/")) {
+      sendFile(ex, ROOT.resolve("clients.html"), "text/html; charset=utf-8");
+      return;
+    }
+    if (!path.startsWith("/c/")) {
+      redirect(ex, "/c");
+      return;
+    }
+    String rest = path.substring(3);
+    String name = rest;
+    String output = null;
+    int slash = rest.indexOf('/');
+    if (slash >= 0) {
+      name = rest.substring(0, slash);
+      output = rest.substring(slash + 1);
+      while (output.endsWith("/")) output = output.substring(0, output.length() - 1);
+      if (output.isEmpty()) output = null;
+    }
+    if (!clientExists(name)) {
+      sendClientNotFound(ex, name);
+      return;
+    }
+    if (output == null) {
+      if (hasQueryParam(ex.getRequestURI().getRawQuery(), "room")) {
+        sendFile(ex, ROOT.resolve("room.html"), "text/html; charset=utf-8");
+        return;
+      }
+      if ("schedule".equals(clientSettingsField(name, "mainOutput"))) {
+        sendFile(ex, ROOT.resolve("schedule.html"), "text/html; charset=utf-8");
+      } else {
+        sendFile(ex, ROOT.resolve("board.html"), "text/html; charset=utf-8");
+      }
+      return;
+    }
+    switch (output) {
+      case "schedule":
+        sendFile(ex, ROOT.resolve("schedule.html"), "text/html; charset=utf-8");
+        return;
+      case "room":
+        sendFile(ex, ROOT.resolve("room.html"), "text/html; charset=utf-8");
+        return;
+      case "slides":
+        sendFile(ex, ROOT.resolve("slides.html"), "text/html; charset=utf-8");
+        return;
+      case "admin": {
+        Session s = session(ex);
+        if (s == null || !clientOwner(s, name)) {
+          redirect(ex, "/event-board/login?next=/c/" + name + "/admin&client=" + name);
+          return;
+        }
+        sendFile(ex, ROOT.resolve("admin.html"), "text/html; charset=utf-8");
+        return;
+      }
+      case "device":
+        redirect(ex, "/c/" + name);
+        return;
+      default:
+        sendClientNotFound(ex, name);
+        return;
+    }
+  }
+
+  static void sendClientNotFound(HttpExchange ex, String name) throws IOException {
+    String shown = name != null && name.matches("[A-Za-z0-9][A-Za-z0-9 _-]{1,31}")
+        ? name : "that board";
+    String page = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        + "<title>Event Board \u2014 Board not found</title>"
+        + "<style>body{font-family:Segoe UI,Arial,sans-serif;margin:0;min-height:100vh;"
+        + "display:flex;align-items:center;justify-content:center;color:#173b63;"
+        + "background:linear-gradient(135deg,#e9a36b 0%,#8fb69b 60%,#789fbd 100%)"
+        + ".card{background:#fff4e2;border:2px solid #2f8f55;border-radius:22px;"
+        + "padding:36px 40px;max-width:520px;margin:20px;text-align:center;"
+        + "box-shadow:0 18px 60px rgba(23,59,99,.2)}"
+        + "h1{font-size:26px;margin:0 0 12px;color:#123c62}p{font-size:15px;line-height:1.55;"
+        + "color:#315b7d;margin:10px 0}a{display:inline-block;margin-top:16px;padding:12px 22px;"
+        + "background:#1d5687;color:#fff8ed;text-decoration:none;border-radius:10px;"
+        + "font-weight:800}</style></head><body><div class=\"card\">"
+        + "<h1>Board not found</h1><p>There is no board at <b>/c/" + shown + "</b> yet.</p>"
+        + "<p>Create your own board \u2014 it only takes a minute.</p>"
+        + "<a href=\"/c\">Create a board</a></div></body></html>";
+    send(ex, 404, page, "text/html; charset=utf-8");
+  }
+
+  /** POST /api/event-board/clients/signup {name, username, password, title} */
+  static void handleClientSignup(HttpExchange ex) throws IOException {
+    if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    String body = readBody(ex, 16 * 1024);
+    if (body == null) {
+      send(ex, 413, "{\"error\":\"request too large\"}", "application/json");
+      return;
+    }
+    String rawName = jsonField(body, "name");
+    String name = rawName == null ? "" : rawName.trim().toLowerCase(Locale.ROOT);
+    name = name.replaceAll("[^a-z0-9-]+", "-").replaceAll("-{2,}", "-");
+    if (name.startsWith("-")) name = name.substring(1);
+    while (name.endsWith("-")) name = name.substring(0, name.length() - 1);
+    if (!validClientSlug(name)) {
+      send(ex, 400, "{\"error\":\"Board name must be 3-32 characters: lowercase letters, "
+          + "numbers, and hyphens.\",\"code\":\"invalid-name\"}", "application/json");
+      return;
+    }
+    String username = jsonField(body, "username");
+    username = username == null ? "" : username.trim();
+    if (!validLoginName(username)) {
+      send(ex, 400, "{\"error\":\"Username must be 3-32 characters: letters, numbers, dot, "
+          + "underscore, or hyphen.\"}", "application/json");
+      return;
+    }
+    String password = jsonField(body, "password");
+    if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
+      send(ex, 400, "{\"error\":\"Password must be at least " + MIN_PASSWORD_LENGTH
+          + " characters.\"}", "application/json");
+      return;
+    }
+    String title = jsonField(body, "title");
+    title = title == null ? "" : title.trim();
+    if (title.length() > 60) title = title.substring(0, 60);
+    if (clientExists(name) || Files.exists(clientLoginFile(name))) {
+      send(ex, 409, "{\"error\":\"That board name is already taken.\"}", "application/json");
+      return;
+    }
+    try {
+      Files.createDirectories(ROOT.resolve("clients"));
+      Files.createDirectories(ROOT.resolve("photos").resolve(
+          validClientSlug(name) ? name : "__invalid__"));
+      String settings = Files.readString(ROOT.resolve("settings.default.json"),
+          StandardCharsets.UTF_8);
+      if (!title.isEmpty()) settings = putJsonStringField(settings, "brandName", title);
+      Path settingsPath = clientSettingsFile(name);
+      try {
+        Files.write(settingsPath, settings.getBytes(StandardCharsets.UTF_8),
+            java.nio.file.StandardOpenOption.CREATE_NEW);
+      } catch (java.nio.file.FileAlreadyExistsException taken) {
+        send(ex, 409, "{\"error\":\"That board name is already taken.\"}", "application/json");
+        return;
+      }
+      try {
+        saveCredentialJson("clients/" + name + ".login", username, password);
+      } catch (Exception e) {
+        Files.deleteIfExists(settingsPath);
+        send(ex, 500, "{\"error\":\"Could not create the board.\"}", "application/json");
+        return;
+      }
+    } catch (IOException e) {
+      send(ex, 500, "{\"error\":\"Could not create the board.\"}", "application/json");
+      return;
+    }
+    send(ex, 200, "{\"ok\":true,\"name\":" + quoted(name) + "}",
+        "application/json; charset=utf-8");
+  }
+
   static String firstPresent(String a, String b) {
     return a == null || a.isBlank() ? b : a;
   }
 
-  static synchronized String cachedIcs(String url) {
+  static String cachedIcs(String url) {
     long now = System.currentTimeMillis();
-    if (url.equals(eventsCacheUrl) && eventsCacheIcs != null
-        && now - eventsCacheAt < EVENTS_CACHE_MS) {
-      return eventsCacheIcs;
+    IcsEntry hit = ICS_CACHE.get(url);
+    if (hit != null && hit.ics != null && now - hit.at < EVENTS_CACHE_MS) {
+      return hit.ics;
     }
     String fresh = fetchIcs(url);
     if (fresh != null) {
-      eventsCacheIcs = fresh;
-      eventsCacheAt = now;
-      eventsCacheUrl = url;
+      ICS_CACHE.put(url, new IcsEntry(fresh, now));
       return fresh;
     }
-    if (url.equals(eventsCacheUrl) && eventsCacheIcs != null) return eventsCacheIcs;
+    if (hit != null && hit.ics != null) return hit.ics;
     try {
       Path c = ROOT.resolve("events.cache.json");
       if (Files.isRegularFile(c)) {
@@ -1187,6 +1634,12 @@ public class DakBoard {
   }
 
   static boolean saveEditorCredential(String username, String password) throws Exception {
+    return saveCredentialJson(EDITOR_CREDENTIAL_FILE, username, password);
+  }
+
+  /** Writes {"username":...,"salt":...,"hash":...} JSON credentials to a file under ROOT. */
+  static boolean saveCredentialJson(String fileName, String username, String password)
+      throws Exception {
     StringBuilder json = new StringBuilder("{\"username\":")
         .append(quoted(username));
     if (password != null && !password.isEmpty()) {
@@ -1200,8 +1653,8 @@ public class DakBoard {
     json.append(",\"updated\":")
         .append(quoted(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
         .append("}");
-    Path target = ROOT.resolve(EDITOR_CREDENTIAL_FILE);
-    Path tmp = ROOT.resolve(EDITOR_CREDENTIAL_FILE + ".tmp");
+    Path target = ROOT.resolve(fileName);
+    Path tmp = ROOT.resolve(fileName + ".tmp");
     Files.write(tmp, json.toString().getBytes(StandardCharsets.UTF_8));
     try {
       Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -1312,10 +1765,13 @@ public class DakBoard {
 
   static String safeNext(String value) {
     if (value == null || value.contains("\r") || value.contains("\n")
-        || !value.startsWith("/event-board") || value.startsWith("//")) {
+        || value.startsWith("//")) {
       return "/event-board/admin";
     }
-    return value;
+    if (value.startsWith("/event-board") || value.startsWith("/c/")) {
+      return value;
+    }
+    return "/event-board/admin";
   }
 
   static Map<String, String> parseForm(String body) {
@@ -1560,8 +2016,16 @@ public class DakBoard {
   }
 
   static List<String> photoNames() throws IOException {
+    return photoNames(null);
+  }
+
+  static List<String> photoNames(String client) throws IOException {
     List<String> names = new ArrayList<>();
     Path dir = ROOT.resolve("photos");
+    if (client != null) {
+      if (!validClientSlug(client)) return names;
+      dir = dir.resolve(client);
+    }
     if (!Files.isDirectory(dir)) return names;
     try (Stream<Path> s = Files.list(dir)) {
       s.filter(Files::isRegularFile)

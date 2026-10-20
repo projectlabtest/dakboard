@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Board — Create your board</title>
+<style>
+  :root{--text:#173b63;--muted:#315b7d;--line:#2f8f55;--card:#fff4e2;--blue:#1d5687;--blue-dark:#123c62}
+  *{box-sizing:border-box}
+  body{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%);color:var(--text);font-family:Segoe UI,Arial,sans-serif}
+  .card{width:min(520px,100%);padding:36px;border:2px solid var(--line);border-radius:22px;background:rgba(255,244,226,.94);box-shadow:0 18px 60px rgba(23,59,99,.2)}
+  .brand{font-size:12px;font-weight:800;letter-spacing:3px;color:var(--muted)}
+  h1{margin:16px 0 8px;font-size:32px;line-height:1.1;color:var(--blue-dark)}
+  .intro{margin:0 0 22px;color:var(--muted);font-size:14px;line-height:1.5}
+  label{display:block;margin:14px 0 6px;font-size:13px;font-weight:800;color:var(--blue)}
+  input{width:100%;padding:12px 13px;border:2px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--text);font:inherit;font-size:16px}
+  input:focus{outline:3px solid rgba(29,86,135,.25);border-color:var(--blue)}
+  .hint{margin:6px 0 0;font-size:12.5px;color:var(--muted)}
+  .preview{font-family:Consolas,monospace;font-weight:700;color:var(--blue)}
+  button{width:100%;margin-top:24px;padding:13px;border:0;border-radius:10px;background:var(--blue);color:#fff8ed;font:inherit;font-size:16px;font-weight:800;cursor:pointer}
+  button:hover{background:var(--blue-dark)}
+  #message{min-height:20px;margin-top:14px;color:#a33d32;font-size:14px;font-weight:700}
+  .foot{margin:22px 0 0;color:var(--muted);font-size:12.5px;line-height:1.55}
+  .foot a{color:var(--blue);font-weight:800}
+  .success{text-align:center}
+  .success h1{font-size:26px}
+  .url{display:block;margin:16px 0;padding:13px;border:2px dashed var(--blue);border-radius:10px;background:#eef4fb;font-family:Consolas,monospace;font-size:15px;font-weight:700;color:var(--blue);word-break:break-all;user-select:all}
+  .btnrow{display:flex;gap:10px;margin-top:18px}
+  .btnrow a{flex:1;text-align:center;padding:12px;border-radius:10px;background:var(--blue);color:#fff8ed;text-decoration:none;font-weight:800}
+  .btnrow a.sec{background:transparent;border:2px solid var(--line);color:var(--blue)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<main class="card">
+  <div id="formView">
+    <div class="brand">EVENT BOARD</div>
+    <h1>Create your board</h1>
+    <p class="intro">Sign up to get your own Event Board: your own web address, your own
+    events, photos, and settings. It only takes a minute.</p>
+    <form id="signupForm">
+      <label for="name">BOARD NAME</label>
+      <input id="name" name="name" placeholder="mychurch" maxlength="32" autocomplete="off" required>
+      <p class="hint">Lowercase letters, numbers, hyphens. Your address:
+        <span class="preview" id="preview">/c/mychurch</span></p>
+      <label for="title">BOARD TITLE <span style="font-weight:600">(optional)</span></label>
+      <input id="title" name="title" placeholder="My Church Event Board" maxlength="60" autocomplete="off">
+      <label for="username">ADMIN USERNAME</label>
+      <input id="username" name="username" placeholder="admin" maxlength="32" autocomplete="username" required>
+      <label for="password">PASSWORD</label>
+      <input id="password" name="password" type="password" placeholder="At least 12 characters" autocomplete="new-password" required>
+      <label for="confirm">CONFIRM PASSWORD</label>
+      <input id="confirm" name="confirm" type="password" autocomplete="new-password" required>
+      <button type="submit">CREATE MY BOARD</button>
+      <div id="message" role="alert"></div>
+    </form>
+    <p class="foot">Already created your board? Open <b>/c/your-name/admin</b> and sign in.
+      Server administrator? <a href="/event-board/login">Sign in here</a>.</p>
+  </div>
+
+  <div id="successView" class="success hidden">
+    <div class="brand">EVENT BOARD</div>
+    <h1>Your board is ready!</h1>
+    <p class="intro">Bookmark or share these addresses:</p>
+    <span class="url" id="tvUrl"></span>
+    <span class="url" id="adminUrl"></span>
+    <div class="btnrow">
+      <a id="openTv" href="#">OPEN MY BOARD</a>
+      <a id="openAdmin" class="sec" href="#">OPEN ADMIN</a>
+    </div>
+    <p class="foot">Sign in at your admin address with the username and password you just
+      created to set your events, brand, weather, and photos.</p>
+  </div>
+</main>
+<script>
+const form = document.getElementById("signupForm");
+const message = document.getElementById("message");
+const nameInput = document.getElementById("name");
+const preview = document.getElementById("preview");
+
+function slugify(value){
+  return String(value || "").toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
+}
+
+nameInput.addEventListener("input", () => {
+  const clean = slugify(nameInput.value);
+  if(clean !== nameInput.value) nameInput.value = clean;
+  preview.textContent = "/c/" + (clean || "mychurch");
+});
+
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  message.textContent = "";
+  const name = slugify(nameInput.value);
+  const title = document.getElementById("title").value.trim();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  const confirm = document.getElementById("confirm").value;
+  if(name.length < 3){
+    message.textContent = "Board name must be at least 3 characters.";
+    return;
+  }
+  if(username.length < 3){
+    message.textContent = "Username must be at least 3 characters.";
+    return;
+  }
+  if(password.length < 12){
+    message.textContent = "Password must be at least 12 characters.";
+    return;
+  }
+  if(password !== confirm){
+    message.textContent = "Password and confirmation do not match.";
+    return;
+  }
+  const button = form.querySelector("button");
+  button.disabled = true;
+  button.textContent = "CREATING...";
+  try{
+    const response = await fetch("/api/event-board/clients/signup", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name, title, username, password}),
+      credentials: "same-origin"
+    });
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok){
+      message.textContent = data.error || "Could not create the board.";
+      return;
+    }
+    const base = location.origin;
+    const tv = base + "/c/" + data.name;
+    const admin = tv + "/admin";
+    document.getElementById("tvUrl").textContent = tv;
+    document.getElementById("adminUrl").textContent = admin;
+    document.getElementById("openTv").href = tv;
+    document.getElementById("openAdmin").href = admin;
+    document.getElementById("formView").classList.add("hidden");
+    document.getElementById("successView").classList.remove("hidden");
+    document.title = "Event Board — " + data.name + " created";
+  }catch(error){
+    message.textContent = "Cannot reach the Event Board server.";
+  }finally{
+    button.disabled = false;
+    button.textContent = "CREATE MY BOARD";
+  }
+});
+</script>
+</body>
+</html>

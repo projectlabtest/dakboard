@@ -40,7 +40,19 @@
 <script>
 const form=document.getElementById("loginForm");
 const message=document.getElementById("message");
-document.getElementById("next").value=new URLSearchParams(location.search).get("next")||"/event-board/admin";
+const params=new URLSearchParams(location.search);
+const client=params.get("client")||"";
+document.getElementById("next").value=params.get("next")||(client?"/c/"+client+"/admin":"/event-board/admin");
+if(client){
+  const field=document.createElement("input");
+  field.type="hidden"; field.name="client"; field.value=client;
+  form.appendChild(field);
+  document.querySelector("h1").textContent="Client sign-in";
+  document.querySelector(".intro").textContent="Sign in to manage this board's display, events, and photos.";
+  document.querySelector(".brand").textContent="EVENT BOARD / "+client;
+  document.getElementById("username").value="";
+  document.getElementById("username").removeAttribute("placeholder");
+}
 form.addEventListener("submit",async event=>{
   event.preventDefault();
   message.textContent="";
