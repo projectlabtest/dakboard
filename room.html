@@ -80,6 +80,11 @@
   .rundown-list::-webkit-scrollbar,.rundown-panel::-webkit-scrollbar,.panel::-webkit-scrollbar{display:none}
   .rundown-date{grid-column:1/-1;font-size:clamp(11px,1.5vmin,16px);font-weight:800;letter-spacing:1px;color:var(--accent);margin:8px 0 2px;border-top:2px solid var(--line);padding-top:8px}
   .rundown-date:first-child{border-top:0;margin-top:0;padding-top:0}
+  .date-box{border:2px solid var(--line);border-radius:14px;margin:8px 0 10px;background:rgba(255,255,255,.5)}
+  .date-box-head{font-size:clamp(11px,1.5vmin,16px);font-weight:800;letter-spacing:.8px;color:#fff4e8;background:var(--accent);padding:5px 12px;border-radius:12px 12px 0 0}
+  .date-box-body{padding:0 12px}
+  body.theme-dark .date-box{background:rgba(255,255,255,.07)}
+  body.theme-dark .date-box-head{color:#0d1f33;border-radius:12px 12px 0 0}
   body.design-split .rundown-list{max-height:clamp(280px,44vh,520px)}
   .rundown-row{display:grid;grid-template-columns:minmax(74px,.55fr) minmax(0,1.4fr) minmax(96px,.85fr);align-items:center;gap:10px;border-top:2px solid var(--line);padding:10px 0}
   .rundown-row:first-child{border-top:0}
@@ -427,15 +432,21 @@ function renderRundownClassic(events){
   const today = manilaDateKey();
   const tomorrow = manilaDateKeyPlus(1);
   let lastDate = "";
+  let dateBody = null;
   list.slice(0, 6).forEach(event => {
     const eDate = event.date || "";
     if(eDate && eDate !== lastDate){
+      const boxEl = document.createElement("div");
+      boxEl.className = "date-box";
       const dh = document.createElement("div");
-      dh.className = "rundown-date";
+      dh.className = "date-box-head";
       dh.textContent = eDate === today ? "TODAY • " + (event.day || eDate)
         : eDate === tomorrow ? "TOMORROW • " + (event.day || eDate)
         : (event.day || eDate);
-      rundown.appendChild(dh);
+      dateBody = document.createElement("div");
+      dateBody.className = "date-box-body";
+      boxEl.append(dh, dateBody);
+      rundown.appendChild(boxEl);
       lastDate = eDate;
     }
     const statusValue = eventStatus(event);
@@ -458,7 +469,7 @@ function renderRundownClassic(events){
     status.textContent = statusValue === "ongoing" ? "ON-GOING" : "UPCOMING";
     room.append(roomName, status);
     row.append(time, name, room);
-    rundown.appendChild(row);
+    (dateBody || rundown).appendChild(row);
   });
 }
 
@@ -499,12 +510,18 @@ function renderRundown(events){
   const today = manilaDateKey();
   const tomorrow = manilaDateKeyPlus(1);
   let lastDate = "";
+  let dateBody = null;
   list.slice(0, 8).forEach(event => {
     if(event.date && event.date !== lastDate){
+      const boxEl = document.createElement("div");
+      boxEl.className = "date-box";
       const date = document.createElement("div");
-      date.className = "ev-date";
+      date.className = "date-box-head";
       date.textContent = (event.date === today ? "TODAY • " : event.date === tomorrow ? "TOMORROW • " : "") + (event.day || formatDate(event.start));
-      rundown.appendChild(date);
+      dateBody = document.createElement("div");
+      dateBody.className = "date-box-body";
+      boxEl.append(date, dateBody);
+      rundown.appendChild(boxEl);
       lastDate = event.date;
     }
     const statusValue = eventStatus(event);
@@ -526,7 +543,7 @@ function renderRundown(events){
     loc.className = "ev-loc";
     loc.textContent = (currentRoom ? "THIS ROOM · " : "") + (event.location || "Unassigned");
     row.append(head, name, loc);
-    rundown.appendChild(row);
+    (dateBody || rundown).appendChild(row);
   });
 }
 
