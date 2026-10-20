@@ -217,6 +217,8 @@
   <div class="ticker"><span id="ticker-text"></span></div>
 </div>
 <script>
+  const EB_CLIENT = (location.pathname.match(/^\/c\/([^\/]+)/) || [])[1] || null;
+  function ebApi(url){ return EB_CLIENT ? url + (url.indexOf("?") >= 0 ? "&" : "?") + "client=" + encodeURIComponent(EB_CLIENT) : url; }
 const query = new URLSearchParams(location.search);
 let settings = {rooms:[]};
 let currentEvents = [];
@@ -459,7 +461,7 @@ function renderRundown(events){
 
 async function fetchSettings(){
   try{
-    const response = await fetch("/api/event-board/settings?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch(ebApi("/api/event-board/settings?ts=" + Date.now()), {cache:"no-store"});
     if(!response.ok) return null;
     const text = await response.text();
     try{ settings = JSON.parse(text); }catch(e){}
@@ -469,7 +471,7 @@ async function fetchSettings(){
 
 async function loadEvents(){
   try{
-    const response = await fetch("/api/event-board/events?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch(ebApi("/api/event-board/events?ts=" + Date.now()), {cache:"no-store"});
     if(!response.ok) return;
     const data = await response.json();
     currentEvents = Array.isArray(data) ? data : [];
@@ -486,7 +488,7 @@ async function loadRoomSlides(){
   const box = document.getElementById("roomSlides");
   let photos = [];
   try{
-    const response = await fetch("/api/event-board/photos");
+    const response = await fetch(ebApi("/api/event-board/photos"));
     if(response.ok) photos = await response.json();
   }catch(e){}
   const brandFile = (settings.brandLogo || "").trim();
@@ -612,7 +614,7 @@ async function checkSettings(){
   }
   if(text !== null) lastSettings = text;
   try{
-    const response = await fetch("/api/event-board/photos?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch(ebApi("/api/event-board/photos?ts=" + Date.now()), {cache:"no-store"});
     if(response.ok){
       const photosText = await response.text();
       if(lastPhotos && photosText !== lastPhotos){
@@ -667,12 +669,12 @@ async function boot(){
   const html = await fetchRoomHtml();
   if(html !== null) lastRoomHtml = html;
   try{
-    const response = await fetch("/api/event-board/photos?ts=" + Date.now(), {cache:"no-store"});
+    const response = await fetch(ebApi("/api/event-board/photos?ts=" + Date.now()), {cache:"no-store"});
     if(response.ok) lastPhotos = await response.text();
   }catch(e){}
   setInterval(loadEvents, 30000);
   setInterval(checkSettings, 2000);
-  function checkDeviceRoute(){
+  function checkDeviceRoute(){ if(EB_CLIENT) return;
     fetch("/api/event-board/device-route?ts="+Date.now(),{cache:"no-store"})
       .then(r => r.ok ? r.json() : null)
       .then(j => { if(j && j.target && j.target !== location.pathname + location.search) location.replace(j.target); })
