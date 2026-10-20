@@ -81,6 +81,9 @@
   .date-box-body{padding:2px 12px 6px}
   body.theme-dark .date-box{background:rgba(255,255,255,.07)}
   body.theme-dark .date-box-head{color:#0d1f33;border-radius:12px 12px 0 0}
+  body.design-solo .date-box{margin:clamp(8px,1.2vmin,14px) 0 clamp(10px,1.5vmin,16px)}
+  body.design-solo .date-box-head{font-size:clamp(16px,2.5vmin,30px);padding:6px 14px;letter-spacing:1.2px}
+  body.design-solo .date-box-body{padding:2px clamp(8px,1.2vmin,16px) clamp(4px,.8vmin,10px)}
   .ev{padding:clamp(4px,1vmin,9px) 0;border-top:1px solid var(--line);font-size:clamp(13px,1.8vmin,18px);font-weight:700;color:#1e3f5c}
   .ev b{color:#1e3f5c;font-size:clamp(11px,1.5vmin,16px);font-weight:800}
   .ev.today b{color:#1e3f5c}
@@ -348,7 +351,7 @@ function renderRundownClassic(events){
   let dateBody = null;
   events.slice(0, 25).forEach(event => {
     const eDate = event.date || "";
-    if(!soloMode && eDate && eDate !== lastDate){
+    if(eDate && eDate !== lastDate){
       const boxEl = document.createElement("div");
       boxEl.className = "date-box";
       const date = document.createElement("div");
@@ -365,7 +368,7 @@ function renderRundownClassic(events){
     d.className = "ev" + (eDate === today ? " today" : "") + (isOngoing ? " ongoing" : "");
     const head = document.createElement("b");
     const baseTime = timeRange(event);
-    head.textContent = (soloMode && eDate !== today && event.day)
+    head.textContent = (soloMode && !eDate && event.day)
       ? (event.day + " · " + baseTime) : baseTime;
     if(eDate === today){
       const badge = document.createElement("span");
