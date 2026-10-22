@@ -123,6 +123,8 @@ public class DakBoard {
     server.createContext("/event-board", DakBoard::handleBoard);
     server.createContext("/c", DakBoard::handleClientPages);
     server.createContext("/api/event-board/clients/signup", DakBoard::handleClientSignup);
+    server.createContext("/api/event-board/clients/delete", DakBoard::handleClientDelete);
+    server.createContext("/api/event-board/clients", DakBoard::handleClientList);
     server.createContext("/api/event-board/login", DakBoard::handleLogin);
     server.createContext("/api/event-board/logout", DakBoard::handleLogout);
     server.createContext("/api/event-board/session", DakBoard::handleSession);
@@ -191,10 +193,13 @@ public class DakBoard {
    * (settings.devices) and redirects it to its assigned output, so a TV only ever
    * needs to bookmark this one URL.
    */
-  static void handleDevice(HttpExchange ex) throws IOException {
+  static void handleDevice(HttpExchange ex) throws IOException { handleDevice(ex, null); }
+
+  /** GET /event-board/device (platform) or /c/<name>/device (client TV setup page). */
+  static void handleDevice(HttpExchange ex, String client) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     String remote = clientIp(ex);
-    String target = deviceTargetForIp(remote);
+    String target = deviceTargetForIp(remote, client);
     if (target != null) { redirect(ex, target); return; }
     String page = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         + "<meta http-equiv=\"refresh\" content=\"5\">"
@@ -225,10 +230,18 @@ public class DakBoard {
    */
   static void handleDeviceRoute(HttpExchange ex) throws IOException {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
-    String target = deviceTargetForIp(clientIp(ex));
+    String target = deviceTargetForIp(clientIp(ex), clientFromQuery(ex));
     String json = target == null ? "{\"target\":null}"
         : "{\"target\":\"" + jsonEscape(target) + "\"}";
     send(ex, 200, json, "application/json; charset=utf-8");
+  }
+
+  /** Valid client slug from ?client=, or null for platform scope. */
+  static String clientFromQuery(HttpExchange ex) {
+    String client = queryParam(ex.getRequestURI().getRawQuery(), "client");
+    if (client == null) return null;
+    client = client.trim().toLowerCase(Locale.ROOT);
+    return validClientSlug(client) && clientExists(client) ? client : null;
   }
 
   /** Normalized requesting IP (strips IPv6-mapped prefix; loopback becomes 127.0.0.1). */
@@ -242,33 +255,35 @@ public class DakBoard {
     return remote;
   }
 
-  /** Assigned output URL for an IP, or null when the IP has no device entry. */
-  static String deviceTargetForIp(String ip) {
-    for (String device : splitJsonObjects(jsonRawField(readSettingsText(), "devices"))) {
+  /** Assigned output URL for an IP in the client's (or platform) devices, or null. */
+  static String deviceTargetForIp(String ip, String client) {
+    String settings = client == null ? readSettingsText() : readClientSettings(client);
+    for (String device : splitJsonObjects(jsonRawField(settings, "devices"))) {
       String deviceIp = jsonField(device, "ip");
       if (deviceIp != null && deviceIp.equalsIgnoreCase(ip)) {
-        return deviceTarget(device);
+        return deviceTarget(device, client);
       }
     }
     return null;
   }
 
   /** Maps one settings.devices entry to the output URL it should open. */
-  static String deviceTarget(String device) {
+  static String deviceTarget(String device, String client) {
+    String root = client == null ? "/event-board" : "/c/" + client;
     String out = jsonField(device, "output");
     String room = jsonField(device, "room");
     if ("room-landscape".equals(out) || "room-portrait".equals(out)) {
       String orientation = "room-portrait".equals(out) ? "portrait" : "landscape";
-      return "/event-board/room?orientation=" + orientation
+      return root + "/room?orientation=" + orientation
           + "&room=" + urlEncodePath(room == null ? "" : room);
     }
-    if ("board-portrait".equals(out)) return "/event-board?orientation=portrait";
-    if ("board-landscape".equals(out)) return "/event-board?orientation=landscape";
-    if ("schedule-portrait".equals(out)) return "/event-board/schedule?orientation=portrait";
-    if ("solo".equals(out)) return "/event-board/schedule?orientation=portrait&design=solo";
-    if ("slides-landscape".equals(out)) return "/event-board/slides?orientation=landscape";
-    if ("slides-portrait".equals(out)) return "/event-board/slides?orientation=portrait";
-    return "/event-board/schedule?orientation=landscape";
+    if ("board-portrait".equals(out)) return root + "?orientation=portrait";
+    if ("board-landscape".equals(out)) return root + "?orientation=landscape";
+    if ("schedule-portrait".equals(out)) return root + "/schedule?orientation=portrait";
+    if ("solo".equals(out)) return root + "/schedule?orientation=portrait&design=solo";
+    if ("slides-landscape".equals(out)) return root + "/slides?orientation=landscape";
+    if ("slides-portrait".equals(out)) return root + "/slides?orientation=portrait";
+    return root + "/schedule?orientation=landscape";
   }
 
   static String urlEncodePath(String value) {
@@ -696,7 +711,9 @@ public class DakBoard {
     boolean first = true;
     for (String name : photoNames(client)) {
       if (!first) sb.append(",");
-      sb.append("\"/photos/").append(jsonEscape(name)).append("\"");
+      sb.append("\"/photos/");
+      if (client != null) sb.append(jsonEscape(client)).append("/");
+      sb.append(jsonEscape(name)).append("\"");
       first = false;
     }
     sb.append("]");
@@ -964,9 +981,10 @@ public class DakBoard {
     try {
       String stored = Files.readString(clientLoginFile(client), StandardCharsets.UTF_8);
       String user = jsonField(stored, "username");
-      byte[] expectedUser = (user == null ? "" : user).getBytes(StandardCharsets.UTF_8);
-      byte[] actualUser = (username == null ? "" : username).getBytes(StandardCharsets.UTF_8);
-      if (!MessageDigest.isEqual(expectedUser, actualUser)) return false;
+      String expectedName = (user == null ? "" : user).trim().toLowerCase(Locale.ROOT);
+      String actualName = (username == null ? "" : username.trim()).toLowerCase(Locale.ROOT);
+      if (!MessageDigest.isEqual(expectedName.getBytes(StandardCharsets.UTF_8),
+          actualName.getBytes(StandardCharsets.UTF_8))) return false;
       String salt = jsonField(stored, "salt");
       String hash = jsonField(stored, "hash");
       String iterations = jsonField(stored, "iterations");
@@ -1021,7 +1039,8 @@ public class DakBoard {
     if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
     String current = jsonField(body, "currentPassword");
     String next = jsonField(body, "newPassword");
-    if (current == null || next == null) {
+    boolean platformReset = session.role != null && "admin".equals(session.role);
+    if (next == null || (current == null && !platformReset)) {
       send(ex, 400, "{\"error\":\"missing password field\"}", "application/json");
       return;
     }
@@ -1031,7 +1050,7 @@ public class DakBoard {
       return;
     }
     String user = clientUsername(client);
-    if (!clientCredentialsMatch(client, user, current)) {
+    if (!platformReset && !clientCredentialsMatch(client, user, current)) {
       send(ex, 400, "{\"error\":\"Current password is incorrect.\"}", "application/json");
       return;
     }
@@ -1113,7 +1132,7 @@ public class DakBoard {
         return;
       }
       case "device":
-        redirect(ex, "/c/" + name);
+        handleDevice(ex, name);
         return;
       default:
         sendClientNotFound(ex, name);
@@ -1209,6 +1228,95 @@ public class DakBoard {
     }
     send(ex, 200, "{\"ok\":true,\"name\":" + quoted(name) + "}",
         "application/json; charset=utf-8");
+  }
+
+  /** POST /api/event-board/clients/delete {name} — owner or platform admin only. */
+  static void handleClientDelete(HttpExchange ex) throws IOException {
+    if (!method(ex, "POST")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!requireApiAuth(ex)) return;
+    Session delSession = session(ex);
+    if (!csrfMatches(ex, delSession)) {
+      send(ex, 403, "{\"error\":\"invalid csrf token\"}", "application/json");
+      return;
+    }
+    String body = readBody(ex, 16 * 1024);
+    if (body == null) {
+      send(ex, 413, "{\"error\":\"request too large\"}", "application/json");
+      return;
+    }
+    String name = jsonField(body, "name");
+    name = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+    if (!validClientSlug(name)) {
+      send(ex, 400, "{\"error\":\"invalid board name\"}", "application/json");
+      return;
+    }
+    if (!clientOwner(delSession, name)) {
+      send(ex, 403, "{\"error\":\"forbidden\"}", "application/json");
+      return;
+    }
+    Path settingsFile = clientSettingsFile(name);
+    Path loginFile = clientLoginFile(name);
+    if (!Files.isRegularFile(settingsFile) && !Files.isRegularFile(loginFile)) {
+      send(ex, 404, "{\"error\":\"board not found\"}", "application/json");
+      return;
+    }
+    try {
+      Files.deleteIfExists(settingsFile);
+      Files.deleteIfExists(loginFile);
+      Path photos = ROOT.resolve("photos").resolve(name);
+      if (Files.isDirectory(photos)) {
+        try (Stream<Path> walk = Files.walk(photos)) {
+          walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+            try { Files.deleteIfExists(p); } catch (IOException ignored) { }
+          });
+        }
+      }
+    } catch (IOException e) {
+      send(ex, 500, "{\"error\":\"could not delete the board\"}", "application/json");
+      return;
+    }
+    final String deletedName = name;
+    SESSIONS.entrySet().removeIf(entry -> entry.getValue() != null
+        && deletedName.equals(entry.getValue().client));
+    send(ex, 200, "{\"ok\":true}", "application/json");
+  }
+
+  /** GET /api/event-board/clients — platform admin: every board (account) created. */
+  static void handleClientList(HttpExchange ex) throws IOException {
+    if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
+    if (!"/api/event-board/clients".equals(ex.getRequestURI().getPath())) {
+      send(ex, 404, "{\"error\":\"not found\"}", "application/json");
+      return;
+    }
+    if (!requireAdmin(ex)) return;
+    Set<String> names = new HashSet<>();
+    Path dir = ROOT.resolve("clients");
+    if (Files.isDirectory(dir)) {
+      try (Stream<Path> files = Files.list(dir)) {
+        files.forEach(p -> {
+          String fn = p.getFileName().toString();
+          if (fn.endsWith(".json")) names.add(fn.substring(0, fn.length() - 5));
+          else if (fn.endsWith(".login")) names.add(fn.substring(0, fn.length() - 6));
+        });
+      } catch (IOException ignored) {
+        // fall through with whatever was collected
+      }
+    }
+    List<String> rows = new ArrayList<>();
+    for (String name : names) {
+      if (!validClientSlug(name)) continue;
+      long created = 0L;
+      Path settings = clientSettingsFile(name);
+      try {
+        if (Files.isRegularFile(settings)) created = Files.getLastModifiedTime(settings).toMillis();
+      } catch (IOException ignored) { }
+      rows.add("{\"name\":" + quoted(name)
+          + ",\"title\":" + quoted(clientSettingsField(name, "brandName"))
+          + ",\"username\":" + quoted(clientUsername(name))
+          + ",\"created\":" + created + "}");
+    }
+    ex.getResponseHeaders().set("Cache-Control", "no-store");
+    send(ex, 200, "[" + String.join(",", rows) + "]", "application/json; charset=utf-8");
   }
 
   static String firstPresent(String a, String b) {

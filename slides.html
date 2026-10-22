@@ -6,15 +6,33 @@
 <title>Event Board — Slides</title>
 <style>
   :root{
-    --bg:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%); --text:#173b63; --muted:#315b7d;
+    --bg:linear-gradient(135deg,#e9a36b 0%,#d8b58b 30%,#8fb69b 60%,#789fbd 100%); --text:#f6f9fa; --muted:#ccd6dc;
     --accent:#1d5687; --green:#2f8f55; --line:#2f8f55;
     --ticker-h:clamp(40px,8vmin,72px);
     --slide-pad:clamp(16px,3.2vmin,48px);
   }
-  body.theme-dark{--bg:linear-gradient(135deg,#0d1f33 0%,#16324e 60%,#1d3f5c 100%);--text:#f2e9d8;--muted:#cfc4a8;
-    --accent:#8fc0e8;--green:#5da87e;--line:#3f7a52}
-  body.theme-dark .ticker{background:rgba(16,30,46,.92);color:#f2e9d8}
-  body.theme-dark .slide-fit{background-color:#060d16}
+  body.theme-dark{--bg:linear-gradient(135deg,#0d1f33 0%,#16324e 60%,#1d3f5c 100%);--text:#f6f9fa;--muted:#ccd6dc;
+    --accent:#8fc0e8;--green:#5da87e;--line:#3f7a52;--ticker-bg:rgba(16,30,46,.92);--slide-bg:#060d16}
+  body.theme-ocean{--bg:linear-gradient(135deg,#3a6076 0%,#47828c 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#8fb8ca;--green:#86b59c;--line:#5c8298;
+    --ticker-bg:rgba(55,84,103,.92);--slide-bg:#2c4756}
+  body.theme-forest{--bg:linear-gradient(135deg,#375844 0%,#4f6d52 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#93c2a2;--green:#7fb590;--line:#5f8269;
+    --ticker-bg:rgba(61,90,68,.92);--slide-bg:#2f4636}
+  body.theme-grape{--bg:linear-gradient(135deg,#4a4466 0%,#66557f 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#b3a4cf;--green:#9cc2a8;--line:#7a6b96;
+    --ticker-bg:rgba(79,68,104,.92);--slide-bg:#3a3150}
+  body.theme-slate{--bg:linear-gradient(135deg,#333c47 0%,#4a5a66 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#9ab8c9;--green:#8fbba0;--line:#5d6975;
+    --ticker-bg:rgba(58,66,76,.93);--slide-bg:#2c323a}
+  body.theme-crimson{--bg:linear-gradient(135deg,#66404a 0%,#7f5559 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#d99a9c;--green:#9cc2a3;--line:#96696c;
+    --ticker-bg:rgba(107,64,68,.92);--slide-bg:#4f3034}
+  body.theme-teal{--bg:linear-gradient(135deg,#33645e 0%,#3f7480 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#8fc9bd;--green:#84bfa5;--line:#5c8880;
+    --ticker-bg:rgba(58,98,92,.92);--slide-bg:#2d4b47}
+  body.theme-cocoa{--bg:linear-gradient(135deg,#4e4238 0%,#6d5847 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#d3ab85;--green:#a3bc8d;--line:#85705d;
+    --ticker-bg:rgba(85,69,58,.92);--slide-bg:#3d322a}
+  body.theme-sunset{--bg:linear-gradient(135deg,#d98e6a 0%,#c97a7e 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#e6b39a;
+    --green:#a9c6a4;--line:#c08a7a;--ticker-bg:rgba(176,122,124,.85);--slide-bg:#5c3d38}
+  body.theme-aurora{--bg:linear-gradient(135deg,#6a9c94 0%,#8a7ab0 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#a9cec7;
+    --green:#93c2ab;--line:#7aa8a0;--ticker-bg:rgba(122,107,163,.85);--slide-bg:#3b3554}
+  body.theme-bluegreen{--bg:linear-gradient(135deg,#6fa8c4 0%,#7bb89a 100%);--text:#f6f9fa;--muted:#ccd6dc;--accent:#9ccadf;
+    --green:#8ec4a8;--line:#74a8bc;--ticker-bg:rgba(94,151,179,.88);--slide-bg:#33505e}
   html{height:100%}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);
@@ -25,7 +43,7 @@
     justify-content:flex-start;padding:var(--slide-pad);opacity:0;
     transition:opacity 1s;background-image:var(--photo);background-size:cover;
     background-position:center;isolation:isolate}
-  .slide-fit{background-image:none;background-color:#0f2740}
+  .slide-fit{background-image:none;background-color:var(--slide-bg,#0f2740)}
   .slide.active{opacity:1}
   .slide::before{content:"";display:block;position:absolute;inset:-6%;background-image:var(--photo);
     background-size:cover;background-position:center;filter:blur(clamp(12px,2.2vmin,28px));
@@ -49,7 +67,7 @@
   .g1{background:linear-gradient(135deg,#e9a36b,#d8b58b)}
   .g2{background:linear-gradient(135deg,#8fb69b,#b9d6b7)}
   .g3{background:linear-gradient(135deg,#789fbd,#a9c9dc)}
-  .ticker{background:rgba(143,181,209,.9);display:flex;
+  .ticker{background:var(--ticker-bg,rgba(143,181,209,.9));display:flex;
     align-items:center;overflow:hidden;border-top:2px solid var(--line);min-width:0;
     font-size:clamp(13px,2vmin,26px);font-weight:700}
   .ticker span{white-space:nowrap;padding-left:100%;
@@ -235,6 +253,9 @@ function isVideoFile(src){
   scene = sceneParam || "lobby";
   isLobby = (scene !== "main");
   document.body.classList.toggle("theme-dark", (S.theme || "default") === "dark");
+  ["dark","ocean","forest","grape","slate","crimson","teal","cocoa","sunset","aurora","bluegreen"].forEach(function(t){
+    if(t !== "dark") document.body.classList.toggle("theme-" + t, (S.theme || "default") === t);
+  });
   document.getElementById("ticker-text").textContent =
     isLobby ? (S.lobbyTicker || S.ticker || "Welcome to EVENT BOARD")
             : (S.ticker || "Welcome to EVENT BOARD");
