@@ -47,11 +47,21 @@ if(client){
   const field=document.createElement("input");
   field.type="hidden"; field.name="client"; field.value=client;
   form.appendChild(field);
-  document.querySelector("h1").textContent="Client sign-in";
+  document.querySelector("h1").textContent=client.toUpperCase();
   document.querySelector(".intro").textContent="Sign in to manage this board's display, events, and photos.";
   document.querySelector(".brand").textContent="EVENT BOARD / "+client;
   document.getElementById("username").value="";
   document.getElementById("username").removeAttribute("placeholder");
+  document.title=client.toUpperCase()+" — Event Board sign-in";
+  fetch("/api/event-board/settings?client="+encodeURIComponent(client),{cache:"no-store"})
+    .then(r=>r.ok?r.json():null)
+    .then(s=>{
+      const title=String((s&&s.brandName)||"").trim();
+      const name=(title && title!=="EVENT BOARD") ? title : client.toUpperCase();
+      document.querySelector("h1").textContent=name;
+      document.title=name+" — Event Board sign-in";
+    })
+    .catch(()=>{});
 }
 form.addEventListener("submit",async event=>{
   event.preventDefault();

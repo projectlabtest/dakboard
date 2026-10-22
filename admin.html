@@ -58,6 +58,7 @@
           <button type="button" class="db-btn sec" onclick="togglePasswordPanel()">CHANGE PASSWORD</button>
           <button type="button" class="db-btn sec" id="editorAccessBtn" onclick="toggleEditorPanel()">EDITOR ACCESS</button>
           <button type="button" class="db-btn sec" onclick="logout()">LOG OUT</button>
+          <button type="button" class="db-btn danger" id="deleteBoardBtn" style="display:none" onclick="deleteBoard()">DELETE BOARD</button>
         </span>
      </div>
   </div>
@@ -102,6 +103,24 @@
       <span class="db-group">
         <button type="button" class="db-btn" onclick="saveEditorAccount()">SAVE EDITOR ACCOUNT</button>
         <button type="button" class="db-btn sec" onclick="disableEditorPassword()">DISABLE</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="db-card" id="boardsCard" style="display:none">
+    <h2>Boards / accounts</h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Lahat ng nakagawang board (account) sa server. I-click ang pangalan para buksan agad ang admin nito, o burahin kung hindi na kailangan.</p>
+    <div class="db-row">
+      <a class="db-btn" href="/c" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">+ CREATE NEW ACCOUNT</a>
+    </div>
+    <div class="db-row">
+      <input type="text" id="boardFilter" placeholder="Hanapin: pangalan o username" oninput="renderBoards()">
+    </div>
+    <div id="boardsList" style="margin-top:4px"></div>
+    <div class="db-actions">
+      <span id="boardsStatus" style="font-size:13px;font-weight:700;color:#64748b"></span>
+      <span class="db-group">
+        <button type="button" class="db-btn sec" onclick="loadBoards()">REFRESH</button>
       </span>
     </div>
   </div>
@@ -155,6 +174,18 @@
     <select id="theme" style="width:100%;padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px;background:#fff">
       <option value="default">Default — cream</option>
       <option value="dark">Dark</option>
+      <optgroup label="Colors (combined)">
+        <option value="ocean">Ocean blue</option>
+        <option value="forest">Forest green</option>
+        <option value="grape">Grape purple</option>
+        <option value="slate">Slate charcoal</option>
+        <option value="crimson">Crimson red</option>
+        <option value="teal">Teal</option>
+        <option value="cocoa">Cocoa brown</option>
+        <option value="sunset">Sunset — orange to rose</option>
+        <option value="aurora">Aurora — teal to violet</option>
+        <option value="bluegreen">Seabreeze — sky to emerald</option>
+      </optgroup>
     </select>
     <label>SLIDE DURATION (seconds, 3–120)</label>
     <input type="number" id="slideSeconds" min="3" max="120" value="10">
@@ -261,12 +292,15 @@
 const EB_CLIENT = (location.pathname.match(/^\/c\/([^\/]+)/) || [])[1] || null;
 const EB_ROOT = EB_CLIENT ? "/c/" + encodeURIComponent(EB_CLIENT) : "/event-board";
 function ebApi(url){ return EB_CLIENT ? url + (url.indexOf("?") >= 0 ? "&" : "?") + "client=" + encodeURIComponent(EB_CLIENT) : url; }
+function ebPhoto(name){ return "/photos/" + (EB_CLIENT ? encodeURIComponent(EB_CLIENT) + "/" : "") + name; }
 function ebClientHide(){
   if(!EB_CLIENT) return;
-  ["editorAccessBtn","devicesCard","devicesToggle","editorPanel"].forEach(id => {
+  ["editorAccessBtn","editorPanel"].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.style.display = "none";
   });
+  const delBtn = document.getElementById("deleteBoardBtn");
+  if(delBtn) delBtn.style.display = "";
   document.title = EB_CLIENT + " — Event Board Control";
 }
 ebClientHide();
@@ -395,6 +429,96 @@ async function logout(){
   location.href = EB_CLIENT ? "/event-board/login?client=" + encodeURIComponent(EB_CLIENT) : "/event-board/login";
 }
 
+async function deleteBoardByName(name, redirectAfter){
+  const ok = confirm('Delete board "' + name + '" permanently?\n\n' +
+    'Its settings, photos, and login will be removed. This cannot be undone.');
+  if(!ok) return false;
+  try{
+    const response = await fetch("/api/event-board/clients/delete", {
+      method:"POST", headers:authHeaders(), credentials:"same-origin",
+      body:JSON.stringify({name:name})
+    });
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok){
+      alert(data.error || "Could not delete the board.");
+      return false;
+    }
+    if(redirectAfter){ location.href = "/c"; return true; }
+    status("Board \"" + name + "\" deleted.", "ok");
+    loadBoards();
+    return true;
+  }catch(error){
+    if(redirectAfter) alert("Cannot reach the Event Board server.");
+    else status("Cannot reach server.", "err");
+    return false;
+  }
+}
+
+async function deleteBoard(){
+  if(!EB_CLIENT) return;
+  const btn = document.getElementById("deleteBoardBtn");
+  btn.disabled = true;
+  const done = await deleteBoardByName(EB_CLIENT, true);
+  if(!done) btn.disabled = false;
+}
+
+let BOARDS = [];
+async function loadBoards(){
+  if(EB_CLIENT || !SESSION || SESSION.role !== "admin") return;
+  try{
+    const response = await fetch("/api/event-board/clients", {credentials:"same-origin", cache:"no-store"});
+    if(!response.ok){
+      document.getElementById("boardsStatus").textContent =
+        response.status === 403 ? "Admin access required." : "";
+      return;
+    }
+    BOARDS = await response.json();
+    renderBoards();
+  }catch(error){
+    document.getElementById("boardsStatus").textContent = "Cannot reach server.";
+  }
+}
+
+function renderBoards(){
+  const list = document.getElementById("boardsList");
+  if(!list) return;
+  const q = (document.getElementById("boardFilter").value || "").trim().toLowerCase();
+  list.textContent = "";
+  const rows = BOARDS
+    .filter(b => !q || ((b.name || "") + " " + (b.title || "") + " " + (b.username || "")).toLowerCase().indexOf(q) >= 0)
+    .sort((a, b) => (b.created || 0) - (a.created || 0));
+  if(!rows.length){
+    const p = document.createElement("p");
+    p.style.cssText = "font-size:13px;color:#64748b;margin:6px 0";
+    p.textContent = BOARDS.length ? "Walang tugma sa hinahanap." : "Wala pang account na nagawa.";
+    list.appendChild(p);
+    return;
+  }
+  rows.forEach(b => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #e2e8f0;flex-wrap:wrap";
+    const link = document.createElement("a");
+    link.href = "/c/" + encodeURIComponent(b.name) + "/admin";
+    link.textContent = b.name;
+    link.style.cssText = "font-weight:800;font-size:15px;color:#1d5687;text-decoration:none";
+    const meta = document.createElement("span");
+    meta.style.cssText = "font-size:12.5px;color:#555;flex:1;min-width:180px";
+    const title = (b.title && b.title !== "EVENT BOARD") ? b.title : "(walang title)";
+    const created = b.created ? new Date(b.created).toLocaleDateString() : "";
+    meta.textContent = title + " · username: " + (b.username || "—") + (created ? " · gawa: " + created : "");
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "db-btn danger";
+    del.textContent = "DELETE";
+    del.style.cssText = "padding:6px 14px;font-size:12px";
+    del.onclick = () => deleteBoardByName(b.name, false);
+    row.appendChild(link);
+    row.appendChild(meta);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
 function authHeaders(){
   return {"Content-Type":"application/json", "X-CSRF-Token":CSRF_TOKEN};
 }
@@ -449,7 +573,8 @@ async function changePassword(){
   const confirmField = document.getElementById("confirmPassword");
   const current = currentField.value;
   const next = nextField.value;
-  if(!current || !next){
+  const adminReset = !!(SESSION && SESSION.role === "admin" && EB_CLIENT);
+  if((!current && !adminReset) || !next){
     pwStatus("Fill in the current and new password.", "err");
     return;
   }
@@ -1003,11 +1128,11 @@ async function loadPhotos(){
     if(isVideoFile(name)){
       const video = document.createElement("video");
       video.muted = true; video.preload = "metadata";
-      video.src = "/photos/" + name;
+      video.src = ebPhoto(name);
       d.appendChild(video);
     }else{
       const img = document.createElement("img");
-      img.src = "/photos/" + name; img.alt = "";
+      img.src = ebPhoto(name); img.alt = "";
       d.appendChild(img);
     }
     const cap = document.createElement("div");
@@ -1198,11 +1323,11 @@ function lobbyThumb(name, idx, total, anns, dimmed){
   if(isVideoFile(name)){
     const video = document.createElement("video");
     video.muted = true; video.preload = "metadata";
-    video.src = "/photos/" + name;
+    video.src = ebPhoto(name);
     d.appendChild(video);
   }else{
     const img = document.createElement("img");
-    img.src = "/photos/" + name; img.alt = "";
+    img.src = ebPhoto(name); img.alt = "";
     d.appendChild(img);
   }
   const cap = document.createElement("div");
@@ -1612,7 +1737,14 @@ function uploadLobby(){
   next();
 }
 
-loadSession().then(ok=>{ if(ok) load(); });
+loadSession().then(ok=>{
+  if(!ok) return;
+  load();
+  if(!EB_CLIENT && SESSION && SESSION.role === "admin"){
+    document.getElementById("boardsCard").style.display = "";
+    loadBoards();
+  }
+});
 </script>
 </body>
 </html>
