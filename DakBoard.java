@@ -21,6 +21,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -1541,7 +1542,8 @@ public class DakBoard {
   }
 
   static void expandEvent(List<Prop> ev, List<Ev> out,
-      ZonedDateTime now, ZonedDateTime todayStart, ZonedDateTime horizon) {
+      ZonedDateTime now, ZonedDateTime todayStart, ZonedDateTime horizon,
+      Set<Instant> overridden) {
     Prop status = findProp(ev, "STATUS");
     if (status != null && "CANCELLED".equalsIgnoreCase(status.value.trim())) return;
     Prop ds = findProp(ev, "DTSTART");
@@ -1580,6 +1582,17 @@ public class DakBoard {
       addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], s, s.plus(dur));
       return;
     }
+    Set<Instant> skipped = new HashSet<>(overridden);
+    for (Prop p : ev) {
+      if (!"EXDATE".equals(p.name)) continue;
+      for (String v : p.value.split(",")) {
+        try {
+          skipped.add(parseWhen(v.trim(), p.params, new boolean[1]).toInstant());
+        } catch (Exception ignored) {
+          // malformed EXDATE entry: nothing to skip
+        }
+      }
+    }
     Map<String, String> rule = parseRule(rr.value);
     String freq = rule.getOrDefault("FREQ", "");
     int interval = Math.max(1, intOf(rule.get("INTERVAL"), 1));
@@ -1600,7 +1613,9 @@ public class DakBoard {
         if (until != null && d.isAfter(until)) break;
         if (d.isAfter(horizon)) break;
         made++;
-        addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], d, d.plus(dur));
+        if (!skipped.contains(d.toInstant())) {
+          addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], d, d.plus(dur));
+        }
         d = d.plusDays(interval);
       }
     } else if (freq.equals("WEEKLY")) {
@@ -1619,7 +1634,9 @@ public class DakBoard {
         long weeks = ChronoUnit.WEEKS.between(anchor, d.with(DayOfWeek.MONDAY));
         if (days.contains(d.getDayOfWeek()) && weeks % interval == 0) {
           made++;
-          addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], occ, occ.plus(dur));
+          if (!skipped.contains(occ.toInstant())) {
+            addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], occ, occ.plus(dur));
+          }
         }
         d = d.plusDays(1);
       }
@@ -1642,12 +1659,13 @@ public class DakBoard {
     ZonedDateTime now = ZonedDateTime.now(MANILA);
     ZonedDateTime todayStart = now.toLocalDate().atStartOfDay(MANILA);
     ZonedDateTime horizon = now.plusDays(60);
+    List<List<Prop>> events = new ArrayList<>();
     List<Prop> cur = null;
     for (String line : lines) {
       if (line.equals("BEGIN:VEVENT")) {
         cur = new ArrayList<>();
       } else if (line.equals("END:VEVENT")) {
-        if (cur != null) expandEvent(cur, out, now, todayStart, horizon);
+        if (cur != null) events.add(cur);
         cur = null;
       } else if (cur != null) {
         int ci = line.indexOf(':');
@@ -1659,6 +1677,24 @@ public class DakBoard {
         String params = sc < 0 ? "" : left.substring(sc + 1);
         cur.add(new Prop(name, params, value));
       }
+    }
+    Map<String, Set<Instant>> overrides = new HashMap<>();
+    for (List<Prop> ev : events) {
+      Prop uid = findProp(ev, "UID");
+      Prop rid = findProp(ev, "RECURRENCE-ID");
+      if (uid == null || rid == null) continue;
+      try {
+        overrides.computeIfAbsent(uid.value.trim(), k -> new HashSet<>())
+            .add(parseWhen(rid.value, rid.params, new boolean[1]).toInstant());
+      } catch (Exception ignored) {
+        // unparseable RECURRENCE-ID: nothing to replace
+      }
+    }
+    for (List<Prop> ev : events) {
+      Prop uid = findProp(ev, "UID");
+      Set<Instant> overridden = uid == null ? Collections.emptySet()
+          : overrides.getOrDefault(uid.value.trim(), Collections.emptySet());
+      expandEvent(ev, out, now, todayStart, horizon, overridden);
     }
     out.sort((a, b) -> a.start.compareTo(b.start));
     DateTimeFormatter dayFmt = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH);
