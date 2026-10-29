@@ -2038,15 +2038,10 @@ public class DakBoard {
           if (colon >= json.length() || json.charAt(colon) != ':') continue;
           colon++;
           while (colon < json.length() && Character.isWhitespace(json.charAt(colon))) colon++;
-          if (colon >= json.length() || json.charAt(colon) != '"') continue;
-          int end = colon + 1;
-          boolean valueEscaped = false;
-          while (end < json.length()) {
-            char valueChar = json.charAt(end++);
-            if (valueEscaped) valueEscaped = false;
-            else if (valueChar == '\\') valueEscaped = true;
-            else if (valueChar == '"') break;
-          }
+          if (colon >= json.length()) continue;
+          String rawValue = scanJsonValue(json, colon);
+          if (rawValue == null) continue;
+          int end = colon + rawValue.length();
           int start = i;
           int removeEnd = end;
           while (removeEnd < json.length() && Character.isWhitespace(json.charAt(removeEnd))) removeEnd++;
