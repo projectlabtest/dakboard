@@ -687,11 +687,16 @@ public class DakBoard {
           body = insertJsonFieldIfMissing(removeJsonField(body, key), key, jsonRawField(current, key));
         }
       }
+      String previousIcsUrl = client != null
+          ? clientSettingsField(client, "outlookIcsUrl") : settingsField("outlookIcsUrl");
       Path file = client != null ? clientSettingsFile(client) : ROOT.resolve("settings.json");
       Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
       Files.write(tmp, body.getBytes(StandardCharsets.UTF_8));
       Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING,
           StandardCopyOption.ATOMIC_MOVE);
+      String savedIcsUrl = client != null
+          ? clientSettingsField(client, "outlookIcsUrl") : settingsField("outlookIcsUrl");
+      if (!savedIcsUrl.equals(previousIcsUrl)) forgetCalendar(previousIcsUrl);
       send(ex, 200, "{\"ok\":true}", "application/json");
       return;
     }
@@ -1319,6 +1324,16 @@ public class DakBoard {
 
   static String firstPresent(String a, String b) {
     return a == null || a.isBlank() ? b : a;
+  }
+
+  /** Drops cached events of a calendar URL that was replaced, so its old events stop showing. */
+  static void forgetCalendar(String url) {
+    if (url != null && !url.isEmpty()) ICS_CACHE.remove(url);
+    try {
+      Files.deleteIfExists(ROOT.resolve("events.cache.json"));
+    } catch (IOException ignored) {
+      // best-effort; cached events are only used for the same URL anyway
+    }
   }
 
   static String cachedIcs(String url) {
