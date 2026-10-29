@@ -682,12 +682,10 @@ public class DakBoard {
       body = insertJsonFieldIfMissing(body, "photoAnnouncements",
           jsonRawField(current, "photoAnnouncements"));
       if(!privileged){
-        body = insertJsonFieldIfMissing(body, "slideSeconds", jsonRawField(current, "slideSeconds"));
-        body = insertJsonFieldIfMissing(body, "weatherLat", jsonRawField(current, "weatherLat"));
-        body = insertJsonFieldIfMissing(body, "weatherLon", jsonRawField(current, "weatherLon"));
-        body = insertJsonFieldIfMissing(body, "orientation", jsonRawField(current, "orientation"));
-        body = insertJsonFieldIfMissing(body, "mainOutput", jsonRawField(current, "mainOutput"));
-        body = insertJsonFieldIfMissing(body, "outputDesign", jsonRawField(current, "outputDesign"));
+        for (String key : new String[] {"slideSeconds", "weatherLat", "weatherLon", "orientation",
+            "mainOutput", "outputDesign", "outlookIcsUrl"}) {
+          body = insertJsonFieldIfMissing(removeJsonField(body, key), key, jsonRawField(current, key));
+        }
       }
       Path file = client != null ? clientSettingsFile(client) : ROOT.resolve("settings.json");
       Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
@@ -1351,25 +1349,56 @@ public class DakBoard {
     try {
       HttpClient client = HttpClient.newBuilder()
           .connectTimeout(Duration.ofSeconds(15))
-          .followRedirects(HttpClient.Redirect.NORMAL).build();
-      HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-          .timeout(Duration.ofSeconds(20))
-          .header("User-Agent", "Event-Board/1.0").GET().build();
-      HttpResponse<byte[]> res = client.send(req, HttpResponse.BodyHandlers.ofByteArray());
-      if (res.statusCode() < 200 || res.statusCode() >= 300) return null;
-      byte[] b = res.body();
-      if (b.length > 5 * 1024 * 1024) return null;
-      String ics = new String(b, StandardCharsets.UTF_8);
-      try {
-        Files.writeString(ROOT.resolve("events.cache.json"),
-            "{\"url\":" + quoted(url) + ",\"ics\":" + quoted(ics) + "}",
-            StandardCharsets.UTF_8);
-      } catch (IOException ignored) {
-        // cache is best-effort
+          .followRedirects(HttpClient.Redirect.NEVER).build();
+      URI target = URI.create(url);
+      for (int hop = 0; hop <= 5; hop++) {
+        if (!publicHttpUri(target)) return null;
+        HttpRequest req = HttpRequest.newBuilder(target)
+            .timeout(Duration.ofSeconds(20))
+            .header("User-Agent", "Event-Board/1.0").GET().build();
+        HttpResponse<byte[]> res = client.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        int status = res.statusCode();
+        if (status >= 300 && status < 400) {
+          String location = res.headers().firstValue("Location").orElse(null);
+          if (location == null) return null;
+          target = target.resolve(location);
+          continue;
+        }
+        if (status < 200 || status >= 300) return null;
+        byte[] b = res.body();
+        if (b.length > 5 * 1024 * 1024) return null;
+        String ics = new String(b, StandardCharsets.UTF_8);
+        try {
+          Files.writeString(ROOT.resolve("events.cache.json"),
+              "{\"url\":" + quoted(url) + ",\"ics\":" + quoted(ics) + "}",
+              StandardCharsets.UTF_8);
+        } catch (IOException ignored) {
+          // cache is best-effort
+        }
+        return ics;
       }
-      return ics;
+      return null;
     } catch (Exception e) {
       return null;
+    }
+  }
+
+  /** Allows only http(s) URLs whose host resolves to public addresses (no loopback/LAN/link-local). */
+  static boolean publicHttpUri(URI uri) {
+    String scheme = uri.getScheme();
+    if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) return false;
+    String host = uri.getHost();
+    if (host == null || host.isEmpty()) return false;
+    try {
+      for (InetAddress addr : InetAddress.getAllByName(host)) {
+        if (addr.isLoopbackAddress() || addr.isSiteLocalAddress() || addr.isLinkLocalAddress()
+            || addr.isAnyLocalAddress() || addr.isMulticastAddress()) return false;
+        byte[] raw = addr.getAddress();
+        if (raw.length == 16 && (raw[0] & 0xfe) == 0xfc) return false;
+      }
+      return true;
+    } catch (Exception e) {
+      return false;
     }
   }
 
@@ -1498,6 +1527,8 @@ public class DakBoard {
 
   static void expandEvent(List<Prop> ev, List<Ev> out,
       ZonedDateTime now, ZonedDateTime todayStart, ZonedDateTime horizon) {
+    Prop status = findProp(ev, "STATUS");
+    if (status != null && "CANCELLED".equalsIgnoreCase(status.value.trim())) return;
     Prop ds = findProp(ev, "DTSTART");
     if (ds == null) return;
     boolean[] ad = new boolean[1];
@@ -1695,6 +1726,7 @@ public class DakBoard {
   }
 
   static boolean credentialMatches(Path file, String envVar, String password) {
+    if (password == null || password.isEmpty()) return false;
     if (Files.isRegularFile(file)) {
       try {
         String stored = Files.readString(file, StandardCharsets.UTF_8);
@@ -1711,7 +1743,8 @@ public class DakBoard {
       }
     }
     String envPassword = System.getenv(envVar);
-    return MessageDigest.isEqual((envPassword == null ? "" : envPassword).getBytes(StandardCharsets.UTF_8),
+    if (envPassword == null || envPassword.isEmpty()) return false;
+    return MessageDigest.isEqual(envPassword.getBytes(StandardCharsets.UTF_8),
         password.getBytes(StandardCharsets.UTF_8));
   }
 
@@ -2184,7 +2217,21 @@ public class DakBoard {
   }
 
   static String jsonEscape(String s) {
-    return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      switch (c) {
+        case '\\': sb.append("\\\\"); break;
+        case '"': sb.append("\\\""); break;
+        case '\n': sb.append("\\n"); break;
+        case '\r': sb.append("\\r"); break;
+        case '\t': sb.append("\\t"); break;
+        default:
+          if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+          else sb.append(c);
+      }
+    }
+    return sb.toString();
   }
 
   static String quoted(String s) {
