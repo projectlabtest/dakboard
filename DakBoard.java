@@ -665,6 +665,11 @@ public class DakBoard {
         send(ex, 400, "{\"error\":\"invalid json\"}", "application/json");
         return;
       }
+      if (topLevelKeys(body) == null) {
+        send(ex, 400, "{\"error\":\"duplicate or escaped setting names are not allowed\"}",
+            "application/json");
+        return;
+      }
       boolean privileged = (session != null && "admin".equals(session.role))
           || (client != null && session != null && "client".equals(session.role));
       boolean clearOutlookIcs = privileged && query != null && query.contains("clearOutlookIcs=true");
@@ -2067,6 +2072,46 @@ public class DakBoard {
     String prefix = json.substring(0, end).trim();
     String separator = prefix.endsWith("{") || prefix.endsWith(",") ? "" : ",";
     return prefix + separator + "\"" + key + "\":" + raw.trim() + json.substring(end);
+  }
+
+  /**
+   * Top-level property names of a JSON object, in order. Returns null when a name is repeated
+   * or contains an escape, since such names cannot be filtered reliably.
+   */
+  static List<String> topLevelKeys(String json) {
+    List<String> keys = new ArrayList<>();
+    int depth = 0;
+    int i = 0;
+    while (i < json.length()) {
+      char c = json.charAt(i);
+      if (c == '"') {
+        int end = i + 1;
+        boolean escaped = false;
+        while (end < json.length()) {
+          char ch = json.charAt(end);
+          if (escaped) escaped = false;
+          else if (ch == '\\') escaped = true;
+          else if (ch == '"') break;
+          end++;
+        }
+        if (end >= json.length()) return null;
+        if (depth == 1) {
+          int after = end + 1;
+          while (after < json.length() && Character.isWhitespace(json.charAt(after))) after++;
+          if (after < json.length() && json.charAt(after) == ':') {
+            String key = json.substring(i + 1, end);
+            if (key.indexOf('\\') >= 0 || keys.contains(key)) return null;
+            keys.add(key);
+          }
+        }
+        i = end + 1;
+        continue;
+      }
+      if (c == '{' || c == '[') depth++;
+      else if (c == '}' || c == ']') depth--;
+      i++;
+    }
+    return keys;
   }
 
   static String removeJsonField(String json, String key) {
