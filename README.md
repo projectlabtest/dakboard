@@ -70,7 +70,7 @@ Old `/dakboard...` and `/lhc-events-board...` URLs redirect to the new paths.
 Requires Docker with Compose.
 
 ```bash
-cp .env.example .env        # then set EVENT_BOARD_ADMIN_PASSWORD (12+ characters)
+cp .env.example .env        # then set DAKBOARD_ADMIN_PASSWORD (12+ characters)
 docker compose up -d --build
 ```
 
@@ -80,6 +80,7 @@ docker compose up -d --build
   image keeps this data. First start copies the default settings only if `settings.json` is missing.
 - The container runs as a non-root user (uid 10001).
 - **Backups:** `docker run --rm -v event-board-data:/data -v "$PWD":/backup alpine tar czf /backup/event-board-data.tgz -C /data .`
+- **Restore** (stop the container first with `docker compose stop`): `docker run --rm -v event-board-data:/data -v "$PWD":/backup alpine sh -c "cd /data && tar xzf /backup/event-board-data.tgz"`
 - **Upgrades:** `git pull`, then `docker compose up -d --build`.
 - **Logs:** `docker compose logs -f event-board`.
 - Credentials and instance data are never copied into the image (see `.dockerignore`).

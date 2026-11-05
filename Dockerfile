@@ -14,8 +14,7 @@ WORKDIR /app
 COPY --from=build /src/*.class ./
 COPY admin.html board.html clients.html editor.html login.html room.html schedule.html slides.html ./
 COPY sample-events.ics settings.default.json ./
-ENV EVENT_BOARD_DATA_DIR=/data \
-    EVENT_BOARD_BIND=0.0.0.0
+ENV EVENT_BOARD_DATA_DIR=/data
 USER eventboard
 EXPOSE 8080
 ENTRYPOINT ["java", "DakBoard", "8080"]

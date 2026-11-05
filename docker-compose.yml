@@ -1,3 +1,5 @@
+name: event-board
+
 services:
   event-board:
     build: .
@@ -7,11 +9,12 @@ services:
       - "8080:8080"
     restart: unless-stopped
     environment:
-      EVENT_BOARD_ADMIN_USERNAME: ${EVENT_BOARD_ADMIN_USERNAME:-admin}
-      EVENT_BOARD_ADMIN_PASSWORD: ${EVENT_BOARD_ADMIN_PASSWORD:?Set EVENT_BOARD_ADMIN_PASSWORD in .env}
-      EVENT_BOARD_EDITOR_PASSWORD: ${EVENT_BOARD_EDITOR_PASSWORD:-}
+      DAKBOARD_ADMIN_USERNAME: ${DAKBOARD_ADMIN_USERNAME:-admin}
+      DAKBOARD_ADMIN_PASSWORD: ${DAKBOARD_ADMIN_PASSWORD:?Set DAKBOARD_ADMIN_PASSWORD in .env}
+      DAKBOARD_EDITOR_PASSWORD: ${DAKBOARD_EDITOR_PASSWORD:-}
     volumes:
       - event-board-data:/data
 
 volumes:
   event-board-data:
+    name: event-board-data

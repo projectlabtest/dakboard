@@ -52,8 +52,8 @@ jobs:
       - name: Start container
         run: |
           docker run -d --name event-board-ci -p 8080:8080 \
-            -e EVENT_BOARD_ADMIN_PASSWORD=ci-admin-password-12345 \
-            -e EVENT_BOARD_EDITOR_PASSWORD=ci-editor-password-12345 \
+            -e DAKBOARD_ADMIN_PASSWORD=ci-admin-password-12345 \
+            -e DAKBOARD_EDITOR_PASSWORD=ci-editor-password-12345 \
             event-board:ci
 
       - name: Wait for HTTP response
@@ -65,11 +65,15 @@ jobs:
           docker logs event-board-ci
           exit 1
 
-      - name: Check pages and user
+      - name: Check pages, user, and admin sign-in
         run: |
           curl -sf http://127.0.0.1:8080/event-board > /dev/null
           curl -sf http://127.0.0.1:8080/c > /dev/null
           test "$(docker exec event-board-ci id -u)" != "0"
+          curl -sf -c cookies.txt -o /dev/null \
+            --data "username=admin&password=ci-admin-password-12345" \
+            http://127.0.0.1:8080/api/event-board/login
+          curl -sf -b cookies.txt http://127.0.0.1:8080/api/event-board/session | grep -q csrfToken
 
       - name: Show container logs on failure
         if: failure()
