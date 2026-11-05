@@ -63,6 +63,13 @@ Check "editor escaped-key save is rejected (400)" ($code -eq 400)
 Check "escaped-key save leaves calendar URL unchanged" ($stored.outlookIcsUrl -eq $ORIGINAL_URL)
 Check "escaped-key save leaves mainOutput unchanged" ($stored.mainOutput -eq "board")
 
+$devices = '{"ticker":"EDITOR DEVICE TEST","devices":[{"ip":"10.0.0.9","output":"room"}]}'
+$code = PostRaw $editor $devices
+$stored = StoredSettings $admin
+$storedDevices = ($stored.devices | ConvertTo-Json -Compress)
+Check "editor device-routing save is accepted (200)" ($code -eq 200)
+Check "editor cannot change devices (TV routing)" (-not ($storedDevices -like "*10.0.0.9*"))
+
 $control = '{"ticker":"EDITOR REGRESSION TICKER","mainOutput":"room","outlookIcsUrl":"https://attacker.example/feed"}'
 $code = PostRaw $editor $control
 $stored = StoredSettings $admin

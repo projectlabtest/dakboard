@@ -688,8 +688,16 @@ public class DakBoard {
       body = insertJsonFieldIfMissing(body, "photoAnnouncements",
           jsonRawField(current, "photoAnnouncements"));
       if(!privileged){
-        for (String key : new String[] {"slideSeconds", "weatherLat", "weatherLon", "orientation",
-            "mainOutput", "outputDesign", "outlookIcsUrl"}) {
+        Set<String> editable = Set.of("ticker", "announcements", "verses", "rooms", "photoOrder",
+            "photoAnnouncements", "photoFit", "lobbyTicker", "lobbyAnnouncements", "lobbyPhotoOrder",
+            "lobbyPhotoAnnouncements", "lobbyPhotoFit", "brandLogo", "brandName", "theme");
+        Set<String> restricted = new HashSet<>();
+        List<String> submitted = topLevelKeys(body);
+        if (submitted != null) restricted.addAll(submitted);
+        List<String> stored = topLevelKeys(current);
+        if (stored != null) restricted.addAll(stored);
+        restricted.removeAll(editable);
+        for (String key : restricted) {
           body = insertJsonFieldIfMissing(removeJsonField(body, key), key, jsonRawField(current, key));
         }
       }
