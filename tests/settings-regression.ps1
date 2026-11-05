@@ -63,6 +63,27 @@ Check "editor escaped-key save is rejected (400)" ($code -eq 400)
 Check "escaped-key save leaves calendar URL unchanged" ($stored.outlookIcsUrl -eq $ORIGINAL_URL)
 Check "escaped-key save leaves mainOutput unchanged" ($stored.mainOutput -eq "board")
 
+$before = (StoredSettings $admin | ConvertTo-Json -Depth 20 -Compress)
+foreach ($bad in @('{"ticker":"MALFORMED TEST","mainOutput":"room"', '{"ticker":"MALFORMED TEST",}', '{"ticker" "MALFORMED TEST"}', '{"ticker":"MALFORMED TEST"}}')) {
+  $code = PostRaw $editor $bad
+  Check "editor malformed JSON rejected (400): $bad" ($code -eq 400)
+}
+$code = PostRaw $admin '{"ticker":"MALFORMED TEST",}'
+Check "admin malformed JSON rejected (400)" ($code -eq 400)
+$fullwidth = '{"ticker":"FULLWIDTH TEST \u' + [char]0xFF11 + [char]0xFF12 + [char]0xFF13 + [char]0xFF14 + '"}'
+$fullwidthBytes = [Text.Encoding]::UTF8.GetBytes($fullwidth)
+try {
+  $r = Invoke-WebRequest -Uri "$BaseUrl/api/event-board/settings" -Method POST -Body $fullwidthBytes `
+    -ContentType "application/json; charset=utf-8" -Headers @{ "X-CSRF-Token" = $editor.Csrf } `
+    -WebSession $editor.Session -UseBasicParsing
+  $code = [int]$r.StatusCode
+} catch {
+  $code = [int]$_.Exception.Response.StatusCode
+}
+Check "editor non-ASCII unicode escape rejected (400)" ($code -eq 400)
+$after = (StoredSettings $admin | ConvertTo-Json -Depth 20 -Compress)
+Check "malformed saves leave stored settings unchanged" ($before -eq $after)
+
 $control = '{"ticker":"EDITOR REGRESSION TICKER","mainOutput":"room","outlookIcsUrl":"https://attacker.example/feed"}'
 $code = PostRaw $editor $control
 $stored = StoredSettings $admin

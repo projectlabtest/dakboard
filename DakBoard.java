@@ -660,8 +660,7 @@ public class DakBoard {
       }
       String body = readBody(ex, 512 * 1024);
       if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
-      String t = body.trim();
-      if (!t.startsWith("{") || !t.endsWith("}")) {
+      if (!isValidJsonObject(body)) {
         send(ex, 400, "{\"error\":\"invalid json\"}", "application/json");
         return;
       }
@@ -2072,6 +2071,109 @@ public class DakBoard {
     String prefix = json.substring(0, end).trim();
     String separator = prefix.endsWith("{") || prefix.endsWith(",") ? "" : ",";
     return prefix + separator + "\"" + key + "\":" + raw.trim() + json.substring(end);
+  }
+
+  static final int JSON_MAX_DEPTH = 64;
+  static final java.util.regex.Pattern JSON_NUMBER = java.util.regex.Pattern.compile(
+      "-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?");
+
+  /** True when the whole text is exactly one JSON object (RFC 8259 syntax, nesting limited). */
+  static boolean isValidJsonObject(String json) {
+    if (json == null) return false;
+    int[] p = {0};
+    skipJsonWs(json, p);
+    if (p[0] >= json.length() || json.charAt(p[0]) != '{') return false;
+    if (!parseJsonValue(json, p, 0)) return false;
+    skipJsonWs(json, p);
+    return p[0] == json.length();
+  }
+
+  static void skipJsonWs(String s, int[] p) {
+    while (p[0] < s.length() && " \t\r\n".indexOf(s.charAt(p[0])) >= 0) p[0]++;
+  }
+
+  static boolean parseJsonValue(String s, int[] p, int depth) {
+    if (depth > JSON_MAX_DEPTH || p[0] >= s.length()) return false;
+    char c = s.charAt(p[0]);
+    if (c == '{') return parseJsonObject(s, p, depth + 1);
+    if (c == '[') return parseJsonArray(s, p, depth + 1);
+    if (c == '"') return parseJsonString(s, p);
+    if (s.startsWith("true", p[0])) { p[0] += 4; return true; }
+    if (s.startsWith("false", p[0])) { p[0] += 5; return true; }
+    if (s.startsWith("null", p[0])) { p[0] += 4; return true; }
+    java.util.regex.Matcher m = JSON_NUMBER.matcher(s);
+    m.region(p[0], s.length());
+    if (!m.lookingAt()) return false;
+    p[0] = m.end();
+    return true;
+  }
+
+  static boolean parseJsonObject(String s, int[] p, int depth) {
+    p[0]++;
+    skipJsonWs(s, p);
+    if (p[0] < s.length() && s.charAt(p[0]) == '}') { p[0]++; return true; }
+    while (true) {
+      skipJsonWs(s, p);
+      if (!parseJsonString(s, p)) return false;
+      skipJsonWs(s, p);
+      if (p[0] >= s.length() || s.charAt(p[0]) != ':') return false;
+      p[0]++;
+      skipJsonWs(s, p);
+      if (!parseJsonValue(s, p, depth)) return false;
+      skipJsonWs(s, p);
+      if (p[0] >= s.length()) return false;
+      char c = s.charAt(p[0]);
+      p[0]++;
+      if (c == '}') return true;
+      if (c != ',') return false;
+    }
+  }
+
+  static boolean parseJsonArray(String s, int[] p, int depth) {
+    p[0]++;
+    skipJsonWs(s, p);
+    if (p[0] < s.length() && s.charAt(p[0]) == ']') { p[0]++; return true; }
+    while (true) {
+      skipJsonWs(s, p);
+      if (!parseJsonValue(s, p, depth)) return false;
+      skipJsonWs(s, p);
+      if (p[0] >= s.length()) return false;
+      char c = s.charAt(p[0]);
+      p[0]++;
+      if (c == ']') return true;
+      if (c != ',') return false;
+    }
+  }
+
+  static boolean isAsciiHex(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+  }
+
+  static boolean parseJsonString(String s, int[] p) {
+    if (p[0] >= s.length() || s.charAt(p[0]) != '"') return false;
+    p[0]++;
+    while (p[0] < s.length()) {
+      char c = s.charAt(p[0]);
+      if (c == '"') { p[0]++; return true; }
+      if (c < 0x20) return false;
+      if (c == '\\') {
+        if (p[0] + 1 >= s.length()) return false;
+        char e = s.charAt(p[0] + 1);
+        if (e == 'u') {
+          if (p[0] + 6 > s.length()) return false;
+          for (int i = p[0] + 2; i < p[0] + 6; i++) {
+            if (!isAsciiHex(s.charAt(i))) return false;
+          }
+          p[0] += 6;
+          continue;
+        }
+        if ("\"\\/bfnrt".indexOf(e) < 0) return false;
+        p[0] += 2;
+        continue;
+      }
+      p[0]++;
+    }
+    return false;
   }
 
   /**
