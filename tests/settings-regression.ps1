@@ -70,6 +70,17 @@ foreach ($bad in @('{"ticker":"MALFORMED TEST","mainOutput":"room"', '{"ticker":
 }
 $code = PostRaw $admin '{"ticker":"MALFORMED TEST",}'
 Check "admin malformed JSON rejected (400)" ($code -eq 400)
+$fullwidth = '{"ticker":"FULLWIDTH TEST \u' + [char]0xFF11 + [char]0xFF12 + [char]0xFF13 + [char]0xFF14 + '"}'
+$fullwidthBytes = [Text.Encoding]::UTF8.GetBytes($fullwidth)
+try {
+  $r = Invoke-WebRequest -Uri "$BaseUrl/api/event-board/settings" -Method POST -Body $fullwidthBytes `
+    -ContentType "application/json; charset=utf-8" -Headers @{ "X-CSRF-Token" = $editor.Csrf } `
+    -WebSession $editor.Session -UseBasicParsing
+  $code = [int]$r.StatusCode
+} catch {
+  $code = [int]$_.Exception.Response.StatusCode
+}
+Check "editor non-ASCII unicode escape rejected (400)" ($code -eq 400)
 $after = (StoredSettings $admin | ConvertTo-Json -Depth 20 -Compress)
 Check "malformed saves leave stored settings unchanged" ($before -eq $after)
 

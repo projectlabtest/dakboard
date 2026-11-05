@@ -44,6 +44,8 @@ public class SettingsKeysTest {
         "", "{", "{\"a\":1", "{\"a\":}", "{\"a\":1,}", "{\"a\" 1}", "{\"a\":01}", "{}}",
         "{\"a\":1} {\"b\":2}", "{\"a\":\"x}", "[1,2]", "\"text\"", "{\"a\":tru}",
         "{\"a\":\"bad \\x escape\"}", "{\"a\":\"raw\ncontrol\"}", "{\"a\":\"\\u12G4\"}",
+        "{\"a\":\"\\u" + (char) 0xFF11 + (char) 0xFF12 + (char) 0xFF13 + (char) 0xFF14 + "\"}",
+        "{\"a\":\"\\u" + (char) 0x0661 + (char) 0x0662 + (char) 0x0663 + (char) 0x0664 + "\"}",
         "{\"a\":1 \"b\":2}", "{,}", "{\"a\":[1,]}", "{\"a\":+1}", "{\"a\":.5}"
     };
     for (String json : invalidObjects) {

@@ -2145,6 +2145,10 @@ public class DakBoard {
     }
   }
 
+  static boolean isAsciiHex(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+  }
+
   static boolean parseJsonString(String s, int[] p) {
     if (p[0] >= s.length() || s.charAt(p[0]) != '"') return false;
     p[0]++;
@@ -2158,7 +2162,7 @@ public class DakBoard {
         if (e == 'u') {
           if (p[0] + 6 > s.length()) return false;
           for (int i = p[0] + 2; i < p[0] + 6; i++) {
-            if (Character.digit(s.charAt(i), 16) < 0) return false;
+            if (!isAsciiHex(s.charAt(i))) return false;
           }
           p[0] += 6;
           continue;
