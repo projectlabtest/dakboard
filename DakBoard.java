@@ -1540,15 +1540,56 @@ public class DakBoard {
   static void addIfUpcoming(List<Ev> out, ZonedDateTime now,
       ZonedDateTime todayStart, ZonedDateTime horizon, String title,
       String location, boolean allDay, ZonedDateTime s, ZonedDateTime e) {
-    if (out.size() >= 200) return;
+    if (out.size() >= MAX_COLLECTED_EVENTS) return;
     if (e.isBefore(now) || s.isAfter(horizon)) return;
     ZonedDateTime showStart = s.isBefore(todayStart) ? todayStart : s;
     out.add(new Ev(showStart, e, title, location, allDay));
   }
 
+  /** Upper bound on collected occurrences before sorting; output is still capped at 200. */
+  static final int MAX_COLLECTED_EVENTS = 5000;
+
+  /** A RECURRENCE-ID override: which instance it replaces, and how it changes the series. */
+  static class Ovr {
+    final Instant rid;
+    final boolean range;
+    final boolean cancelled;
+    final Duration shift;
+    Ovr(Instant rid, boolean range, boolean cancelled, Duration shift) {
+      this.rid = rid;
+      this.range = range;
+      this.cancelled = cancelled;
+      this.shift = shift;
+    }
+  }
+
+  /**
+   * Applies overrides to one master occurrence. Returns null when the occurrence is replaced by an
+   * override VEVENT or cancelled, otherwise the (possibly moved) occurrence. RANGE=THISANDFUTURE
+   * applies to every occurrence from its RECURRENCE-ID onward, shifted by the override's change.
+   */
+  static ZonedDateTime resolveOcc(ZonedDateTime occ, List<Ovr> overrides) {
+    Instant at = occ.toInstant();
+    Ovr best = null;
+    for (Ovr o : overrides) {
+      if (o.rid.equals(at)) return null;
+      if (o.range && o.rid.isBefore(at) && (best == null || o.rid.isAfter(best.rid))) best = o;
+    }
+    if (best == null) return occ;
+    if (best.cancelled) return null;
+    return occ.plus(best.shift);
+  }
+
+  static void addResolved(List<Ev> out, ZonedDateTime now, ZonedDateTime todayStart,
+      ZonedDateTime horizon, String title, String location, boolean allDay,
+      ZonedDateTime occ, Duration dur, List<Ovr> overrides) {
+    ZonedDateTime r = resolveOcc(occ, overrides);
+    if (r != null) addIfUpcoming(out, now, todayStart, horizon, title, location, allDay, r, r.plus(dur));
+  }
+
   static void expandEvent(List<Prop> ev, List<Ev> out,
       ZonedDateTime now, ZonedDateTime todayStart, ZonedDateTime horizon,
-      Set<Instant> overridden) {
+      List<Ovr> overrides) {
     Prop status = findProp(ev, "STATUS");
     if (status != null && "CANCELLED".equalsIgnoreCase(status.value.trim())) return;
     Prop ds = findProp(ev, "DTSTART");
@@ -1587,7 +1628,7 @@ public class DakBoard {
       addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], s, s.plus(dur));
       return;
     }
-    Set<Instant> skipped = new HashSet<>(overridden);
+    Set<Instant> skipped = new HashSet<>();
     for (Prop p : ev) {
       if (!"EXDATE".equals(p.name)) continue;
       for (String v : p.value.split(",")) {
@@ -1619,7 +1660,7 @@ public class DakBoard {
         if (d.isAfter(horizon)) break;
         made++;
         if (!skipped.contains(d.toInstant())) {
-          addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], d, d.plus(dur));
+          addResolved(out, now, todayStart, horizon, title, location, ad[0], d, dur, overrides);
         }
         d = d.plusDays(interval);
       }
@@ -1640,14 +1681,16 @@ public class DakBoard {
         if (days.contains(d.getDayOfWeek()) && weeks % interval == 0) {
           made++;
           if (!skipped.contains(occ.toInstant())) {
-            addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], occ, occ.plus(dur));
+            addResolved(out, now, todayStart, horizon, title, location, ad[0], occ, dur, overrides);
           }
         }
         d = d.plusDays(1);
       }
     } else {
       // MONTHLY/YEARLY not expanded in v1: show the master occurrence only
-      addIfUpcoming(out, now, todayStart, horizon, title, location, ad[0], s, s.plus(dur));
+      if (!skipped.contains(s.toInstant())) {
+        addResolved(out, now, todayStart, horizon, title, location, ad[0], s, dur, overrides);
+      }
     }
   }
 
@@ -1683,23 +1726,36 @@ public class DakBoard {
         cur.add(new Prop(name, params, value));
       }
     }
-    Map<String, Set<Instant>> overrides = new HashMap<>();
+    Map<String, List<Ovr>> overrides = new HashMap<>();
     for (List<Prop> ev : events) {
       Prop uid = findProp(ev, "UID");
       Prop rid = findProp(ev, "RECURRENCE-ID");
       if (uid == null || rid == null) continue;
       try {
-        overrides.computeIfAbsent(uid.value.trim(), k -> new HashSet<>())
-            .add(parseWhen(rid.value, rid.params, new boolean[1]).toInstant());
+        Instant ridAt = parseWhen(rid.value, rid.params, new boolean[1]).toInstant();
+        Prop st = findProp(ev, "STATUS");
+        boolean cancelled = st != null && "CANCELLED".equalsIgnoreCase(st.value.trim());
+        Duration shift = Duration.ZERO;
+        Prop ds = findProp(ev, "DTSTART");
+        if (ds != null) {
+          try {
+            shift = Duration.between(ridAt, parseWhen(ds.value, ds.params, new boolean[1]).toInstant());
+          } catch (Exception ignored) {
+            shift = Duration.ZERO;
+          }
+        }
+        boolean range = rid.params.toUpperCase(Locale.ROOT).contains("RANGE=THISANDFUTURE");
+        overrides.computeIfAbsent(uid.value.trim(), k -> new ArrayList<>())
+            .add(new Ovr(ridAt, range, cancelled, shift));
       } catch (Exception ignored) {
         // unparseable RECURRENCE-ID: nothing to replace
       }
     }
     for (List<Prop> ev : events) {
       Prop uid = findProp(ev, "UID");
-      Set<Instant> overridden = uid == null ? Collections.emptySet()
-          : overrides.getOrDefault(uid.value.trim(), Collections.emptySet());
-      expandEvent(ev, out, now, todayStart, horizon, overridden);
+      List<Ovr> ovs = uid == null ? Collections.emptyList()
+          : overrides.getOrDefault(uid.value.trim(), Collections.emptyList());
+      expandEvent(ev, out, now, todayStart, horizon, ovs);
     }
     out.sort((a, b) -> a.start.compareTo(b.start));
     DateTimeFormatter dayFmt = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH);
