@@ -26,7 +26,7 @@ Fixes and features follow the same path:
    - feature: `feat/<issue-number>-<short-description>`, e.g. `feat/4-docker-support`
 5. **Keep the branch focused.** One issue per branch. Put unrelated work on separate
    branches and pull requests.
-6. **Validate the change.** Compile the server (`javac --release 11 DakBoard.java`) and
+6. **Validate the change.** Compile the server (`javac --release 11 EventBoard.java`) and
    test the behavior you changed. Describe what you tested in the pull request.
 7. **Open a pull request into `main`.** Fill in the pull request template: link the
    issue, summarize the change, and list the testing performed. Use `Closes #<number>`

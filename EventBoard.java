@@ -45,23 +45,23 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
 /**
- * Event Board (DAKboard) - standalone Java server, no dependencies.
+ * Event Board - standalone Java server, no dependencies.
  *
- * Run from the dakboard-java folder:
- *   javac DakBoard.java
- *   java DakBoard [port, default 8080]
+ * Run from the project folder:
+ *   javac EventBoard.java
+ *   java EventBoard [port, default 8080]
  *
  * Board:        http://localhost:8080/event-board
  * Control page: http://localhost:8080/event-board/admin
  * Editor page:  http://localhost:8080/event-board/editor (limited content editing)
  */
-public class DakBoard {
+public class EventBoard {
 
   static Path ROOT = Paths.get("").toAbsolutePath();
   static final long MAX_BODY = 128L * 1024 * 1024; // 128 MB (photo/video uploads)
   static final String[] PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
   static final String[] VIDEO_EXTS = {".mp4", ".webm"};
-  static final String SESSION_COOKIE = "DAKBOARD_SESSION";
+  static final String SESSION_COOKIE = "EVENT_BOARD_SESSION";
   static final String CREDENTIAL_FILE = "admin-credential.json";
   static final String EDITOR_CREDENTIAL_FILE = "editor-credential.json";
   static final int MIN_PASSWORD_LENGTH = 12;
@@ -111,48 +111,48 @@ public class DakBoard {
     } catch (IOException e) {
       System.out.println("Could not verify settings.json: " + e.getMessage());
     }
-    String bind = envOrDefault("DAKBOARD_BIND", "0.0.0.0");
+    String bind = envOrDefault("EVENT_BOARD_BIND", "0.0.0.0");
     HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
-    server.createContext("/event-board/login", DakBoard::handleLoginPage);
-    server.createContext("/event-board/admin", DakBoard::handleAdmin);
-    server.createContext("/event-board/editor", DakBoard::handleEditorPage);
-    server.createContext("/event-board/room", DakBoard::handleRoom);
-    server.createContext("/event-board/schedule", DakBoard::handleSchedule);
-    server.createContext("/event-board/slides", DakBoard::handleSlides);
-    server.createContext("/event-board/device", DakBoard::handleDevice);
-    server.createContext("/api/event-board/device-route", DakBoard::handleDeviceRoute);
-    server.createContext("/event-board", DakBoard::handleBoard);
-    server.createContext("/c", DakBoard::handleClientPages);
-    server.createContext("/api/event-board/clients/signup", DakBoard::handleClientSignup);
-    server.createContext("/api/event-board/clients/delete", DakBoard::handleClientDelete);
-    server.createContext("/api/event-board/clients", DakBoard::handleClientList);
-    server.createContext("/api/event-board/login", DakBoard::handleLogin);
-    server.createContext("/api/event-board/logout", DakBoard::handleLogout);
-    server.createContext("/api/event-board/session", DakBoard::handleSession);
-    server.createContext("/api/event-board/password", DakBoard::handleChangePassword);
-    server.createContext("/api/event-board/editor-password", DakBoard::handleEditorPassword);
-    server.createContext("/api/event-board/admin/settings", DakBoard::handleAdminSettings);
-    server.createContext("/api/event-board/settings", DakBoard::handleSettings);
-    server.createContext("/api/event-board/server-info", DakBoard::handleServerInfo);
-    server.createContext("/api/event-board/photos/upload", DakBoard::handleUpload);
-    server.createContext("/api/event-board/photos/delete", DakBoard::handleDelete);
-    server.createContext("/api/event-board/photos", DakBoard::handlePhotos);
-    server.createContext("/api/event-board/events", DakBoard::handleEvents);
-    server.createContext("/sample-events.ics", DakBoard::handleSampleEvents);
-    server.createContext("/photos", DakBoard::handlePhotoFile);
-    server.createContext("/dakboard", DakBoard::handleLegacyRedirect);
-    server.createContext("/api/dakboard", DakBoard::handleLegacyRedirect);
-    server.createContext("/lhc-events-board", DakBoard::handleLegacyRedirect);
-    server.createContext("/api/lhc-events-board", DakBoard::handleLegacyRedirect);
-    server.createContext("/", DakBoard::handleRoot);
+    server.createContext("/event-board/login", EventBoard::handleLoginPage);
+    server.createContext("/event-board/admin", EventBoard::handleAdmin);
+    server.createContext("/event-board/editor", EventBoard::handleEditorPage);
+    server.createContext("/event-board/room", EventBoard::handleRoom);
+    server.createContext("/event-board/schedule", EventBoard::handleSchedule);
+    server.createContext("/event-board/slides", EventBoard::handleSlides);
+    server.createContext("/event-board/device", EventBoard::handleDevice);
+    server.createContext("/api/event-board/device-route", EventBoard::handleDeviceRoute);
+    server.createContext("/event-board", EventBoard::handleBoard);
+    server.createContext("/c", EventBoard::handleClientPages);
+    server.createContext("/api/event-board/clients/signup", EventBoard::handleClientSignup);
+    server.createContext("/api/event-board/clients/delete", EventBoard::handleClientDelete);
+    server.createContext("/api/event-board/clients", EventBoard::handleClientList);
+    server.createContext("/api/event-board/login", EventBoard::handleLogin);
+    server.createContext("/api/event-board/logout", EventBoard::handleLogout);
+    server.createContext("/api/event-board/session", EventBoard::handleSession);
+    server.createContext("/api/event-board/password", EventBoard::handleChangePassword);
+    server.createContext("/api/event-board/editor-password", EventBoard::handleEditorPassword);
+    server.createContext("/api/event-board/admin/settings", EventBoard::handleAdminSettings);
+    server.createContext("/api/event-board/settings", EventBoard::handleSettings);
+    server.createContext("/api/event-board/server-info", EventBoard::handleServerInfo);
+    server.createContext("/api/event-board/photos/upload", EventBoard::handleUpload);
+    server.createContext("/api/event-board/photos/delete", EventBoard::handleDelete);
+    server.createContext("/api/event-board/photos", EventBoard::handlePhotos);
+    server.createContext("/api/event-board/events", EventBoard::handleEvents);
+    server.createContext("/sample-events.ics", EventBoard::handleSampleEvents);
+    server.createContext("/photos", EventBoard::handlePhotoFile);
+    server.createContext("/dakboard", EventBoard::handleLegacyRedirect);
+    server.createContext("/api/dakboard", EventBoard::handleLegacyRedirect);
+    server.createContext("/lhc-events-board", EventBoard::handleLegacyRedirect);
+    server.createContext("/api/lhc-events-board", EventBoard::handleLegacyRedirect);
+    server.createContext("/", EventBoard::handleRoot);
     server.setExecutor(Executors.newFixedThreadPool(8));
     server.start();
-    System.out.println("DAKboard running at http://localhost:" + port + "/event-board");
+    System.out.println("Event Board running at http://localhost:" + port + "/event-board");
     System.out.println("Admin login at http://localhost:" + port + "/event-board/login");
     System.out.println("Client boards: sign up at http://localhost:" + port + "/c"
         + " \u2014 each board lives at /c/<name>");
     if (!authConfigured()) {
-      System.out.println("Set DAKBOARD_ADMIN_PASSWORD before using the admin login.");
+      System.out.println("Set EVENT_BOARD_ADMIN_PASSWORD before using the admin login.");
     } else if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) {
       System.out.println("Admin password comes from " + CREDENTIAL_FILE
           + " (set from the admin page). Delete that file to fall back to the startup password.");
@@ -160,7 +160,7 @@ public class DakBoard {
     System.out.println("Editor page at http://localhost:" + port + "/event-board/editor"
         + " (username \"" + editorUsername() + "\")");
     if (!editorConfigured()) {
-      System.out.println("Editor login is disabled. Set DAKBOARD_EDITOR_PASSWORD or set an editor"
+      System.out.println("Editor login is disabled. Set EVENT_BOARD_EDITOR_PASSWORD or set an editor"
           + " password from the admin page (Editor access).");
     } else if (Files.isRegularFile(ROOT.resolve(EDITOR_CREDENTIAL_FILE))) {
       System.out.println("Editor password comes from " + EDITOR_CREDENTIAL_FILE
@@ -580,7 +580,7 @@ public class DakBoard {
       SESSIONS.entrySet().removeIf(entry -> "editor".equals(entry.getValue().role));
       send(ex, 200, "{\"ok\":true,\"editorUsername\":" + quoted(editorUsername())
           + ",\"editorEnabled\":" + editorConfigured()
-          + ",\"message\":\"Editor account removed. Editor login now follows DAKBOARD_EDITOR_PASSWORD, if set.\"}",
+          + ",\"message\":\"Editor account removed. Editor login now follows EVENT_BOARD_EDITOR_PASSWORD, if set.\"}",
           "application/json");
       return;
     }
@@ -1726,13 +1726,22 @@ public class DakBoard {
 
   // ---------------- helpers ----------------
 
-  static String envOrDefault(String key, String fallback) {
+  /** Reads EVENT_BOARD_* settings, falling back to the DAKBOARD_* names used before the rename. */
+  static String envValue(String key) {
     String value = System.getenv(key);
+    if (value == null && key.startsWith("EVENT_BOARD_")) {
+      value = System.getenv("DAKBOARD_" + key.substring("EVENT_BOARD_".length()));
+    }
+    return value;
+  }
+
+  static String envOrDefault(String key, String fallback) {
+    String value = envValue(key);
     return value == null || value.trim().isEmpty() ? fallback : value.trim();
   }
 
   static String adminUsername() {
-    return envOrDefault("DAKBOARD_ADMIN_USERNAME", "admin");
+    return envOrDefault("EVENT_BOARD_ADMIN_USERNAME", "admin");
   }
 
   static String editorUsername() {
@@ -1742,12 +1751,12 @@ public class DakBoard {
       if (name != null && !name.trim().isEmpty()) return name.trim();
     } catch (IOException ignored) {
     }
-    return envOrDefault("DAKBOARD_EDITOR_USERNAME", "editor");
+    return envOrDefault("EVENT_BOARD_EDITOR_USERNAME", "editor");
   }
 
   static boolean authConfigured() {
     if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) return true;
-    String password = System.getenv("DAKBOARD_ADMIN_PASSWORD");
+    String password = envValue("EVENT_BOARD_ADMIN_PASSWORD");
     return password != null && password.length() >= MIN_PASSWORD_LENGTH;
   }
 
@@ -1757,7 +1766,7 @@ public class DakBoard {
       if (jsonField(stored, "hash") != null) return true;
     } catch (IOException ignored) {
     }
-    String password = System.getenv("DAKBOARD_EDITOR_PASSWORD");
+    String password = envValue("EVENT_BOARD_EDITOR_PASSWORD");
     return password != null && password.length() >= MIN_PASSWORD_LENGTH;
   }
 
@@ -1773,12 +1782,12 @@ public class DakBoard {
     byte[] actualUser = (username == null ? "" : username).getBytes(StandardCharsets.UTF_8);
     if (!MessageDigest.isEqual(expectedUser, actualUser)) return false;
     return credentialMatches(ROOT.resolve(EDITOR_CREDENTIAL_FILE),
-        "DAKBOARD_EDITOR_PASSWORD", password == null ? "" : password);
+        "EVENT_BOARD_EDITOR_PASSWORD", password == null ? "" : password);
   }
 
   static boolean passwordMatches(String password) {
     return credentialMatches(ROOT.resolve(CREDENTIAL_FILE),
-        "DAKBOARD_ADMIN_PASSWORD", password);
+        "EVENT_BOARD_ADMIN_PASSWORD", password);
   }
 
   static boolean credentialMatches(Path file, String envVar, String password) {
@@ -1798,7 +1807,7 @@ public class DakBoard {
       } catch (Exception ignored) {
       }
     }
-    String envPassword = System.getenv(envVar);
+    String envPassword = envValue(envVar);
     if (envPassword == null || envPassword.isEmpty()) return false;
     return MessageDigest.isEqual(envPassword.getBytes(StandardCharsets.UTF_8),
         password.getBytes(StandardCharsets.UTF_8));
@@ -2262,7 +2271,7 @@ public class DakBoard {
     try (Stream<Path> s = Files.list(dir)) {
       s.filter(Files::isRegularFile)
           .map(p -> p.getFileName().toString())
-          .filter(DakBoard::hasPhotoExt)
+          .filter(EventBoard::hasPhotoExt)
           .sorted(String.CASE_INSENSITIVE_ORDER)
           .forEach(names::add);
     }

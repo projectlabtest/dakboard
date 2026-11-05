@@ -1,5 +1,5 @@
 # HTTP-level regression checks for the settings write path (issues #1 and #9).
-# Run against a server started with DAKBOARD_ADMIN_PASSWORD and DAKBOARD_EDITOR_PASSWORD set.
+# Run against a server started with EVENT_BOARD_ADMIN_PASSWORD and EVENT_BOARD_EDITOR_PASSWORD set.
 # Only use a test instance: this script changes the platform settings it runs against.
 #
 #   powershell -ExecutionPolicy Bypass -File tests\settings-regression.ps1 `
