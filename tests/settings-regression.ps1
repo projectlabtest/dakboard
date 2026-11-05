@@ -70,6 +70,17 @@ $storedDevices = ($stored.devices | ConvertTo-Json -Compress)
 Check "editor device-routing save is accepted (200)" ($code -eq 200)
 Check "editor cannot change devices (TV routing)" (-not ($storedDevices -like "*10.0.0.9*"))
 
+$nestedBody = '{"rooms":[{"name":"Hall","location":"Hall","outlookIcsUrl":"https://attacker.example/feed"}]}'
+$code = PostRaw $editor $nestedBody
+$stored = StoredSettings $admin
+Check "editor nested outlookIcsUrl rejected (400)" ($code -eq 400)
+Check "nested outlookIcsUrl leaves calendar URL unchanged" ($stored.outlookIcsUrl -eq $ORIGINAL_URL)
+$emptyNested = '{"rooms":[{"name":"Hall","location":"Hall","outlookIcsUrl":""}]}'
+$code = PostRaw $editor $emptyNested
+Check "editor empty nested outlookIcsUrl rejected (400)" ($code -eq 400)
+$public = (Invoke-WebRequest -Uri "$BaseUrl/api/event-board/settings" -UseBasicParsing).Content
+Check "public settings response does not expose the calendar URL" (-not $public.Contains($ORIGINAL_URL))
+
 $control = '{"ticker":"EDITOR REGRESSION TICKER","mainOutput":"room","outlookIcsUrl":"https://attacker.example/feed"}'
 $code = PostRaw $editor $control
 $stored = StoredSettings $admin

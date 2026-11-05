@@ -32,6 +32,26 @@ public class SettingsKeysTest {
 
     expect("unterminated string is rejected", DakBoard.topLevelKeys("{\"a\":\"x}") == null);
 
+    String nested = "{\"rooms\":[{\"name\":\"Hall\",\"outlookIcsUrl\":\"https://evil.example/x\"}],"
+        + "\"outlookIcsUrl\":\"https://good.example/feed\"}";
+    expect("top-level read ignores nested copy",
+        "https://good.example/feed".equals(DakBoard.jsonField(nested, "outlookIcsUrl")));
+    expect("nested-only key is not read as top-level",
+        DakBoard.jsonField("{\"rooms\":[{\"outlookIcsUrl\":\"https://evil.example/x\"}]}", "outlookIcsUrl") == null);
+    expect("top-level put leaves nested copy untouched",
+        DakBoard.putJsonStringField("{\"rooms\":[{\"outlookIcsUrl\":\"\"}]}", "outlookIcsUrl", "https://good.example/feed")
+            .equals("{\"rooms\":[{\"outlookIcsUrl\":\"\"}],\"outlookIcsUrl\":\"https://good.example/feed\"}"));
+    expect("top-level put replaces existing top-level value",
+        DakBoard.putJsonStringField(nested, "outlookIcsUrl", "https://new.example/f")
+            .endsWith("\"outlookIcsUrl\":\"https://new.example/f\"}"));
+    expect("nested outlookIcsUrl is detected", DakBoard.hasNestedSettingName(nested, "outlookIcsUrl"));
+    expect("nested escaped name is detected",
+        DakBoard.hasNestedSettingName("{\"rooms\":[{\"outlook\\u0049csUrl\":\"x\"}]}", "outlookIcsUrl"));
+    expect("top-level outlookIcsUrl is not a nested name",
+        !DakBoard.hasNestedSettingName("{\"outlookIcsUrl\":\"https://good.example/feed\"}", "outlookIcsUrl"));
+    expect("other nested names are allowed",
+        !DakBoard.hasNestedSettingName("{\"rooms\":[{\"name\":\"Hall\"}]}", "outlookIcsUrl"));
+
     if (failures > 0) {
       System.out.println(failures + " check(s) failed");
       System.exit(1);
