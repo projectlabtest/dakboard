@@ -32,6 +32,24 @@ public class SettingsKeysTest {
 
     expect("unterminated string is rejected", DakBoard.topLevelKeys("{\"a\":\"x}") == null);
 
+    String[] validObjects = {
+        "{}", " { } ", "{\"a\":1}", "{\"a\":-1.5e+3,\"b\":0}", "{\"a\":[1,\"x\",{\"b\":null}],\"c\":true}",
+        "{\"s\":\"esc \\\" \\\\ \\/ \\n \\u00e9\"}", "{\"c\":{\"a\":1,\"a\":2}}", "\n{\"a\":false}\n"
+    };
+    for (String json : validObjects) {
+      expect("valid object accepted: " + json.trim(), DakBoard.isValidJsonObject(json));
+    }
+
+    String[] invalidObjects = {
+        "", "{", "{\"a\":1", "{\"a\":}", "{\"a\":1,}", "{\"a\" 1}", "{\"a\":01}", "{}}",
+        "{\"a\":1} {\"b\":2}", "{\"a\":\"x}", "[1,2]", "\"text\"", "{\"a\":tru}",
+        "{\"a\":\"bad \\x escape\"}", "{\"a\":\"raw\ncontrol\"}", "{\"a\":\"\\u12G4\"}",
+        "{\"a\":1 \"b\":2}", "{,}", "{\"a\":[1,]}", "{\"a\":+1}", "{\"a\":.5}"
+    };
+    for (String json : invalidObjects) {
+      expect("invalid object rejected: " + json.replace("\n", "\\n"), !DakBoard.isValidJsonObject(json));
+    }
+
     if (failures > 0) {
       System.out.println(failures + " check(s) failed");
       System.exit(1);

@@ -63,6 +63,16 @@ Check "editor escaped-key save is rejected (400)" ($code -eq 400)
 Check "escaped-key save leaves calendar URL unchanged" ($stored.outlookIcsUrl -eq $ORIGINAL_URL)
 Check "escaped-key save leaves mainOutput unchanged" ($stored.mainOutput -eq "board")
 
+$before = (StoredSettings $admin | ConvertTo-Json -Depth 20 -Compress)
+foreach ($bad in @('{"ticker":"MALFORMED TEST","mainOutput":"room"', '{"ticker":"MALFORMED TEST",}', '{"ticker" "MALFORMED TEST"}', '{"ticker":"MALFORMED TEST"}}')) {
+  $code = PostRaw $editor $bad
+  Check "editor malformed JSON rejected (400): $bad" ($code -eq 400)
+}
+$code = PostRaw $admin '{"ticker":"MALFORMED TEST",}'
+Check "admin malformed JSON rejected (400)" ($code -eq 400)
+$after = (StoredSettings $admin | ConvertTo-Json -Depth 20 -Compress)
+Check "malformed saves leave stored settings unchanged" ($before -eq $after)
+
 $control = '{"ticker":"EDITOR REGRESSION TICKER","mainOutput":"room","outlookIcsUrl":"https://attacker.example/feed"}'
 $code = PostRaw $editor $control
 $stored = StoredSettings $admin
