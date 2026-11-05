@@ -28,6 +28,11 @@ jobs:
           javac --release 11 -cp . -d . tests/SettingsKeysTest.java
           java -cp . SettingsKeysTest
 
+      - name: Calendar recurrence tests
+        run: |
+          javac --release 11 -cp . -d . tests/CalendarTest.java
+          java -cp . CalendarTest
+
       - name: Start server
         env:
           DAKBOARD_ADMIN_PASSWORD: ci-admin-password-12345
