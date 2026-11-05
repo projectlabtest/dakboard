@@ -670,6 +670,11 @@ public class DakBoard {
             "application/json");
         return;
       }
+      if (hasNestedSettingName(body, "outlookIcsUrl")) {
+        send(ex, 400, "{\"error\":\"outlookIcsUrl is only allowed as a top-level setting\"}",
+            "application/json");
+        return;
+      }
       boolean privileged = (session != null && "admin".equals(session.role))
           || (client != null && session != null && "client".equals(session.role));
       boolean clearOutlookIcs = privileged && query != null && query.contains("clearOutlookIcs=true");
@@ -688,8 +693,16 @@ public class DakBoard {
       body = insertJsonFieldIfMissing(body, "photoAnnouncements",
           jsonRawField(current, "photoAnnouncements"));
       if(!privileged){
-        for (String key : new String[] {"slideSeconds", "weatherLat", "weatherLon", "orientation",
-            "mainOutput", "outputDesign", "outlookIcsUrl"}) {
+        Set<String> editable = Set.of("ticker", "announcements", "verses", "rooms", "photoOrder",
+            "photoAnnouncements", "photoFit", "lobbyTicker", "lobbyAnnouncements", "lobbyPhotoOrder",
+            "lobbyPhotoAnnouncements", "lobbyPhotoFit", "brandLogo", "brandName", "theme");
+        Set<String> restricted = new HashSet<>();
+        List<String> submitted = topLevelKeys(body);
+        if (submitted != null) restricted.addAll(submitted);
+        List<String> stored = topLevelKeys(current);
+        if (stored != null) restricted.addAll(stored);
+        restricted.removeAll(editable);
+        for (String key : restricted) {
           body = insertJsonFieldIfMissing(removeJsonField(body, key), key, jsonRawField(current, key));
         }
       }
@@ -2330,26 +2343,84 @@ public class DakBoard {
   }
 
   static String putJsonStringField(String json, String key, String value) {
-    String needle = "\"" + key + "\"";
-    int i = json.indexOf(needle);
-    if(i >= 0){
-      int colon = json.indexOf(':', i + needle.length());
-      if(colon >= 0){
-        int q1 = json.indexOf('"', colon + 1);
-        if(q1 >= 0){
-          for(int j = q1 + 1; j < json.length(); j++){
-            char c = json.charAt(j);
-            if(c == '\\'){ j++; continue; }
-            if(c == '"') return json.substring(0, q1) + quoted(value) + json.substring(j + 1);
+    int valueStart = topLevelValueStart(json, key);
+    if (valueStart >= 0 && valueStart < json.length() && json.charAt(valueStart) == '"') {
+      int end = stringEnd(json, valueStart);
+      if (end >= 0) return json.substring(0, valueStart) + quoted(value) + json.substring(end + 1);
+    }
+    String base = valueStart >= 0 ? removeJsonField(json, key) : json;
+    int end = base.lastIndexOf('}');
+    if(end < 0) return base;
+    String prefix = base.substring(0, end).trim();
+    String separator = prefix.endsWith("{") ? "" : ",";
+    return prefix + separator + "\"" + key + "\":" + quoted(value) + base.substring(end);
+  }
+
+  /** Index of the value after "key": at the top level of a JSON object, or -1. */
+  static int topLevelValueStart(String json, String key) {
+    int depth = 0;
+    int i = 0;
+    while (i < json.length()) {
+      char c = json.charAt(i);
+      if (c == '"') {
+        int end = stringEnd(json, i);
+        if (end < 0) return -1;
+        if (depth == 1 && end == i + 1 + key.length() && json.startsWith(key, i + 1)) {
+          int colon = end + 1;
+          while (colon < json.length() && Character.isWhitespace(json.charAt(colon))) colon++;
+          if (colon < json.length() && json.charAt(colon) == ':') {
+            colon++;
+            while (colon < json.length() && Character.isWhitespace(json.charAt(colon))) colon++;
+            return colon;
           }
         }
+        i = end + 1;
+        continue;
       }
+      if (c == '{' || c == '[') depth++;
+      else if (c == '}' || c == ']') depth--;
+      i++;
     }
-    int end = json.lastIndexOf('}');
-    if(end < 0) return json;
-    String prefix = json.substring(0, end).trim();
-    String separator = prefix.endsWith("{") ? "" : ",";
-    return prefix + separator + "\"" + key + "\":" + quoted(value) + json.substring(end);
+    return -1;
+  }
+
+  /** Index of the closing quote of the string that starts at {@code start}, or -1. */
+  static int stringEnd(String s, int start) {
+    boolean escaped = false;
+    for (int j = start + 1; j < s.length(); j++) {
+      char ch = s.charAt(j);
+      if (escaped) escaped = false;
+      else if (ch == '\\') escaped = true;
+      else if (ch == '"') return j;
+    }
+    return -1;
+  }
+
+  /**
+   * True when a property at any depth below the top level is named {@code key} or uses an escape,
+   * so nested copies of protected settings cannot be stored or published.
+   */
+  static boolean hasNestedSettingName(String json, String key) {
+    int depth = 0;
+    int i = 0;
+    while (i < json.length()) {
+      char c = json.charAt(i);
+      if (c == '"') {
+        int end = stringEnd(json, i);
+        if (end < 0) return false;
+        int after = end + 1;
+        while (after < json.length() && Character.isWhitespace(json.charAt(after))) after++;
+        boolean isName = after < json.length() && json.charAt(after) == ':';
+        String name = json.substring(i + 1, end);
+        if (isName && depth >= 2 && (name.equals(key) || name.indexOf('\\') >= 0)) return true;
+        i = end + 1;
+        continue;
+      }
+      if (c == '{' || c == '[') depth++;
+      else if (c == '}' || c == ']') depth--;
+      i++;
+    }
+    return false;
   }
 
   /**
@@ -2357,16 +2428,8 @@ public class DakBoard {
    * other values (numbers, booleans) are returned as raw text. Null when not found.
    */
   static String jsonField(String json, String key) {
-    String needle = "\"" + key + "\"";
-    int i = json.indexOf(needle);
-    if (i < 0) return null;
-    int colon = json.indexOf(':', i + needle.length());
-    if (colon < 0) return null;
-    int valueStart = colon + 1;
-    while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) {
-      valueStart++;
-    }
-    if (valueStart >= json.length()) return null;
+    int valueStart = topLevelValueStart(json, key);
+    if (valueStart < 0 || valueStart >= json.length()) return null;
     if (json.charAt(valueStart) != '"') {
       int end = valueStart;
       while (end < json.length() && ",}] \t\r\n".indexOf(json.charAt(end)) < 0) end++;
