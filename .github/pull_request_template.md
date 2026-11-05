@@ -1,6 +1,8 @@
 ## Related issue
 
-Closes #
+Refs #
+
+<!-- Use "Closes #" only after the issue author has confirmed the issue can be closed. -->
 
 ## Summary
 
@@ -10,7 +12,7 @@ Closes #
 
 <!-- How you validated the change: commands run, scenarios tested, and results. -->
 
-- [ ] `javac --release 11 DakBoard.java` compiles
+- [ ] CI passed on this pull request (build-and-test and docker-smoke), or the failure is explained above
 - [ ] Behavior changed by this PR was tested (describe above)
 
 ## Production readiness
