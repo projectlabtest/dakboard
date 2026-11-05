@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Compile server
+        run: javac --release 11 DakBoard.java
+
+      - name: Unit tests (settings key scanner)
+        run: |
+          javac --release 11 -cp . -d . tests/SettingsKeysTest.java
+          java -cp . SettingsKeysTest
+
+      - name: Start server
+        env:
+          DAKBOARD_ADMIN_PASSWORD: ci-admin-password-12345
+          DAKBOARD_EDITOR_PASSWORD: ci-editor-password-12345
+        run: |
+          nohup java DakBoard 8080 > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8080/event-board/login > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat server.log
+          exit 1
+
+      - name: HTTP regression tests
+        shell: pwsh
+        run: ./tests/settings-regression.ps1 -BaseUrl http://127.0.0.1:8080 -AdminPassword ci-admin-password-12345 -EditorPassword ci-editor-password-12345
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t event-board:ci .
+
+      - name: Start container
+        run: |
+          docker run -d --name event-board-ci -p 8080:8080 \
+            -e DAKBOARD_ADMIN_PASSWORD=ci-admin-password-12345 \
+            -e DAKBOARD_EDITOR_PASSWORD=ci-editor-password-12345 \
+            event-board:ci
+
+      - name: Wait for HTTP response
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/event-board/login > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          docker logs event-board-ci
+          exit 1
+
+      - name: Check pages, user, and admin sign-in
+        run: |
+          curl -sf http://127.0.0.1:8080/event-board > /dev/null
+          curl -sf http://127.0.0.1:8080/c > /dev/null
+          test "$(docker exec event-board-ci id -u)" != "0"
+          curl -sf -c cookies.txt -o /dev/null \
+            --data "username=admin&password=ci-admin-password-12345" \
+            http://127.0.0.1:8080/api/event-board/login
+          curl -sf -b cookies.txt http://127.0.0.1:8080/api/event-board/session | grep -q csrfToken
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs event-board-ci
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f event-board-ci || true

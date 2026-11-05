@@ -1,0 +1,20 @@
+name: event-board
+
+services:
+  event-board:
+    build: .
+    image: event-board:latest
+    container_name: event-board
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      DAKBOARD_ADMIN_USERNAME: ${DAKBOARD_ADMIN_USERNAME:-admin}
+      DAKBOARD_ADMIN_PASSWORD: ${DAKBOARD_ADMIN_PASSWORD:?Set DAKBOARD_ADMIN_PASSWORD in .env}
+      DAKBOARD_EDITOR_PASSWORD: ${DAKBOARD_EDITOR_PASSWORD:-}
+    volumes:
+      - event-board-data:/data
+
+volumes:
+  event-board-data:
+    name: event-board-data

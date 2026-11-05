@@ -58,6 +58,7 @@ import javax.crypto.spec.PBEKeySpec;
 public class DakBoard {
 
   static Path ROOT = Paths.get("").toAbsolutePath();
+  static Path DATA = Paths.get(envOrDefault("EVENT_BOARD_DATA_DIR", "")).toAbsolutePath();
   static final long MAX_BODY = 128L * 1024 * 1024; // 128 MB (photo/video uploads)
   static final String[] PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
   static final String[] VIDEO_EXTS = {".mp4", ".webm"};
@@ -94,9 +95,9 @@ public class DakBoard {
       port = Integer.parseInt(args[0]);
     }
     SERVER_PORT = port;
-    Files.createDirectories(ROOT.resolve("photos"));
-    Files.createDirectories(ROOT.resolve("clients"));
-    Path settings = ROOT.resolve("settings.json");
+    Files.createDirectories(DATA.resolve("photos"));
+    Files.createDirectories(DATA.resolve("clients"));
+    Path settings = DATA.resolve("settings.json");
     if (!Files.exists(settings)) {
       Files.copy(ROOT.resolve("settings.default.json"), settings);
     }
@@ -153,7 +154,7 @@ public class DakBoard {
         + " \u2014 each board lives at /c/<name>");
     if (!authConfigured()) {
       System.out.println("Set DAKBOARD_ADMIN_PASSWORD before using the admin login.");
-    } else if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) {
+    } else if (Files.isRegularFile(DATA.resolve(CREDENTIAL_FILE))) {
       System.out.println("Admin password comes from " + CREDENTIAL_FILE
           + " (set from the admin page). Delete that file to fall back to the startup password.");
     }
@@ -162,7 +163,7 @@ public class DakBoard {
     if (!editorConfigured()) {
       System.out.println("Editor login is disabled. Set DAKBOARD_EDITOR_PASSWORD or set an editor"
           + " password from the admin page (Editor access).");
-    } else if (Files.isRegularFile(ROOT.resolve(EDITOR_CREDENTIAL_FILE))) {
+    } else if (Files.isRegularFile(DATA.resolve(EDITOR_CREDENTIAL_FILE))) {
       System.out.println("Editor password comes from " + EDITOR_CREDENTIAL_FILE
           + " (set from the admin page).");
     }
@@ -533,7 +534,7 @@ public class DakBoard {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     if (!requireAdmin(ex)) return;
     ex.getResponseHeaders().set("Cache-Control", "no-store");
-    sendFile(ex, ROOT.resolve("settings.json"), "application/json; charset=utf-8");
+    sendFile(ex, DATA.resolve("settings.json"), "application/json; charset=utf-8");
   }
 
   static void handleEditorPassword(HttpExchange ex) throws IOException {
@@ -569,7 +570,7 @@ public class DakBoard {
           + MIN_PASSWORD_LENGTH + " characters.\"}", "application/json");
       return;
     }
-    Path file = ROOT.resolve(EDITOR_CREDENTIAL_FILE);
+    Path file = DATA.resolve(EDITOR_CREDENTIAL_FILE);
     if (next != null && next.isEmpty() && rawName == null) {
       try {
         Files.deleteIfExists(file);
@@ -590,7 +591,7 @@ public class DakBoard {
       } else if (hasEditorHash()) {
         String stored = Files.readString(file, StandardCharsets.UTF_8);
         String withName = putJsonStringField(stored, "username", name);
-        Path tmp = ROOT.resolve(EDITOR_CREDENTIAL_FILE + ".tmp");
+        Path tmp = DATA.resolve(EDITOR_CREDENTIAL_FILE + ".tmp");
         Files.write(tmp, withName.getBytes(StandardCharsets.UTF_8));
         try {
           Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -629,7 +630,7 @@ public class DakBoard {
           send(ex, 200, owner ? body : publicSettingsJson(body), "application/json; charset=utf-8");
           return;
         }
-        String body = Files.readString(ROOT.resolve("settings.json"), StandardCharsets.UTF_8);
+        String body = Files.readString(DATA.resolve("settings.json"), StandardCharsets.UTF_8);
         send(ex, 200, publicSettingsJson(body), "application/json; charset=utf-8");
       } catch (IOException e) {
         send(ex, 500, "{\"error\":\"settings unavailable\"}", "application/json");
@@ -695,7 +696,7 @@ public class DakBoard {
       }
       String previousIcsUrl = client != null
           ? clientSettingsField(client, "outlookIcsUrl") : settingsField("outlookIcsUrl");
-      Path file = client != null ? clientSettingsFile(client) : ROOT.resolve("settings.json");
+      Path file = client != null ? clientSettingsFile(client) : DATA.resolve("settings.json");
       Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
       Files.write(tmp, body.getBytes(StandardCharsets.UTF_8));
       Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING,
@@ -733,8 +734,8 @@ public class DakBoard {
     if (!method(ex, "GET")) { send(ex, 405, "Method not allowed", "text/plain"); return; }
     String path = ex.getRequestURI().getPath();
     String name = path.startsWith("/photos/") ? path.substring("/photos/".length()) : "";
-    Path file = ROOT.resolve("photos").resolve(name).normalize();
-    if (name.isEmpty() || !file.startsWith(ROOT.resolve("photos"))
+    Path file = DATA.resolve("photos").resolve(name).normalize();
+    if (name.isEmpty() || !file.startsWith(DATA.resolve("photos"))
         || !Files.isRegularFile(file)) {
       send(ex, 404, "Not found", "text/plain");
       return;
@@ -766,7 +767,7 @@ public class DakBoard {
         return;
       }
     }
-    Path photoDir = ROOT.resolve("photos");
+    Path photoDir = DATA.resolve("photos");
     if (client != null) {
       photoDir = photoDir.resolve(client);
       try {
@@ -831,7 +832,7 @@ public class DakBoard {
     String body = readBody(ex, 64 * 1024);
     if (body == null) { send(ex, 413, "{\"error\":\"too large\"}", "application/json"); return; }
     String filename = sanitize(jsonField(body, "filename"));
-    Path base = client == null ? ROOT.resolve("photos") : ROOT.resolve("photos").resolve(client);
+    Path base = client == null ? DATA.resolve("photos") : DATA.resolve("photos").resolve(client);
     Path file = base.resolve(filename == null ? "" : filename).normalize();
     if (filename == null || filename.isEmpty()
         || !file.startsWith(base) || !Files.isRegularFile(file)) {
@@ -907,7 +908,7 @@ public class DakBoard {
 
   static String readSettingsText() {
     try {
-      return Files.readString(ROOT.resolve("settings.json"), StandardCharsets.UTF_8);
+      return Files.readString(DATA.resolve("settings.json"), StandardCharsets.UTF_8);
     } catch (IOException e) {
       return "";
     }
@@ -937,13 +938,13 @@ public class DakBoard {
   }
 
   static Path clientSettingsFile(String name) {
-    if (!validClientSlug(name)) return ROOT.resolve("clients").resolve("__invalid__");
-    return ROOT.resolve("clients").resolve(name + ".json");
+    if (!validClientSlug(name)) return DATA.resolve("clients").resolve("__invalid__");
+    return DATA.resolve("clients").resolve(name + ".json");
   }
 
   static Path clientLoginFile(String name) {
-    if (!validClientSlug(name)) return ROOT.resolve("clients").resolve("__invalid__");
-    return ROOT.resolve("clients").resolve(name + ".login");
+    if (!validClientSlug(name)) return DATA.resolve("clients").resolve("__invalid__");
+    return DATA.resolve("clients").resolve(name + ".login");
   }
 
   static boolean clientExists(String name) {
@@ -1210,8 +1211,8 @@ public class DakBoard {
       return;
     }
     try {
-      Files.createDirectories(ROOT.resolve("clients"));
-      Files.createDirectories(ROOT.resolve("photos").resolve(
+      Files.createDirectories(DATA.resolve("clients"));
+      Files.createDirectories(DATA.resolve("photos").resolve(
           validClientSlug(name) ? name : "__invalid__"));
       String settings = Files.readString(ROOT.resolve("settings.default.json"),
           StandardCharsets.UTF_8);
@@ -1272,7 +1273,7 @@ public class DakBoard {
     try {
       Files.deleteIfExists(settingsFile);
       Files.deleteIfExists(loginFile);
-      Path photos = ROOT.resolve("photos").resolve(name);
+      Path photos = DATA.resolve("photos").resolve(name);
       if (Files.isDirectory(photos)) {
         try (Stream<Path> walk = Files.walk(photos)) {
           walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
@@ -1299,7 +1300,7 @@ public class DakBoard {
     }
     if (!requireAdmin(ex)) return;
     Set<String> names = new HashSet<>();
-    Path dir = ROOT.resolve("clients");
+    Path dir = DATA.resolve("clients");
     if (Files.isDirectory(dir)) {
       try (Stream<Path> files = Files.list(dir)) {
         files.forEach(p -> {
@@ -1336,7 +1337,7 @@ public class DakBoard {
   static void forgetCalendar(String url) {
     if (url != null && !url.isEmpty()) ICS_CACHE.remove(url);
     try {
-      Files.deleteIfExists(ROOT.resolve("events.cache.json"));
+      Files.deleteIfExists(DATA.resolve("events.cache.json"));
     } catch (IOException ignored) {
       // best-effort; cached events are only used for the same URL anyway
     }
@@ -1355,7 +1356,7 @@ public class DakBoard {
     }
     if (hit != null && hit.ics != null) return hit.ics;
     try {
-      Path c = ROOT.resolve("events.cache.json");
+      Path c = DATA.resolve("events.cache.json");
       if (Files.isRegularFile(c)) {
         String saved = Files.readString(c, StandardCharsets.UTF_8);
         if (url.equals(jsonField(saved, "url"))) return jsonField(saved, "ics");
@@ -1390,7 +1391,7 @@ public class DakBoard {
         if (b.length > 5 * 1024 * 1024) return null;
         String ics = new String(b, StandardCharsets.UTF_8);
         try {
-          Files.writeString(ROOT.resolve("events.cache.json"),
+          Files.writeString(DATA.resolve("events.cache.json"),
               "{\"url\":" + quoted(url) + ",\"ics\":" + quoted(ics) + "}",
               StandardCharsets.UTF_8);
         } catch (IOException ignored) {
@@ -1737,7 +1738,7 @@ public class DakBoard {
 
   static String editorUsername() {
     try {
-      String stored = Files.readString(ROOT.resolve(EDITOR_CREDENTIAL_FILE), StandardCharsets.UTF_8);
+      String stored = Files.readString(DATA.resolve(EDITOR_CREDENTIAL_FILE), StandardCharsets.UTF_8);
       String name = jsonField(stored, "username");
       if (name != null && !name.trim().isEmpty()) return name.trim();
     } catch (IOException ignored) {
@@ -1746,14 +1747,14 @@ public class DakBoard {
   }
 
   static boolean authConfigured() {
-    if (Files.isRegularFile(ROOT.resolve(CREDENTIAL_FILE))) return true;
+    if (Files.isRegularFile(DATA.resolve(CREDENTIAL_FILE))) return true;
     String password = System.getenv("DAKBOARD_ADMIN_PASSWORD");
     return password != null && password.length() >= MIN_PASSWORD_LENGTH;
   }
 
   static boolean editorConfigured() {
     try {
-      String stored = Files.readString(ROOT.resolve(EDITOR_CREDENTIAL_FILE), StandardCharsets.UTF_8);
+      String stored = Files.readString(DATA.resolve(EDITOR_CREDENTIAL_FILE), StandardCharsets.UTF_8);
       if (jsonField(stored, "hash") != null) return true;
     } catch (IOException ignored) {
     }
@@ -1772,12 +1773,12 @@ public class DakBoard {
     byte[] expectedUser = editorUsername().getBytes(StandardCharsets.UTF_8);
     byte[] actualUser = (username == null ? "" : username).getBytes(StandardCharsets.UTF_8);
     if (!MessageDigest.isEqual(expectedUser, actualUser)) return false;
-    return credentialMatches(ROOT.resolve(EDITOR_CREDENTIAL_FILE),
+    return credentialMatches(DATA.resolve(EDITOR_CREDENTIAL_FILE),
         "DAKBOARD_EDITOR_PASSWORD", password == null ? "" : password);
   }
 
   static boolean passwordMatches(String password) {
-    return credentialMatches(ROOT.resolve(CREDENTIAL_FILE),
+    return credentialMatches(DATA.resolve(CREDENTIAL_FILE),
         "DAKBOARD_ADMIN_PASSWORD", password);
   }
 
@@ -1823,7 +1824,7 @@ public class DakBoard {
 
   static boolean hasEditorHash() {
     try {
-      return jsonField(Files.readString(ROOT.resolve(EDITOR_CREDENTIAL_FILE),
+      return jsonField(Files.readString(DATA.resolve(EDITOR_CREDENTIAL_FILE),
           StandardCharsets.UTF_8), "hash") != null;
     } catch (IOException e) {
       return false;
@@ -1834,7 +1835,7 @@ public class DakBoard {
     return saveCredentialJson(EDITOR_CREDENTIAL_FILE, username, password);
   }
 
-  /** Writes {"username":...,"salt":...,"hash":...} JSON credentials to a file under ROOT. */
+  /** Writes {"username":...,"salt":...,"hash":...} JSON credentials to a file under DATA. */
   static boolean saveCredentialJson(String fileName, String username, String password)
       throws Exception {
     StringBuilder json = new StringBuilder("{\"username\":")
@@ -1850,8 +1851,8 @@ public class DakBoard {
     json.append(",\"updated\":")
         .append(quoted(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
         .append("}");
-    Path target = ROOT.resolve(fileName);
-    Path tmp = ROOT.resolve(fileName + ".tmp");
+    Path target = DATA.resolve(fileName);
+    Path tmp = DATA.resolve(fileName + ".tmp");
     Files.write(tmp, json.toString().getBytes(StandardCharsets.UTF_8));
     try {
       Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -1870,8 +1871,8 @@ public class DakBoard {
         + ",\"hash\":" + quoted(Base64.getEncoder().encodeToString(hash))
         + ",\"updated\":" + quoted(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
         + "}";
-    Path target = ROOT.resolve(fileName);
-    Path tmp = ROOT.resolve(fileName + ".tmp");
+    Path target = DATA.resolve(fileName);
+    Path tmp = DATA.resolve(fileName + ".tmp");
     Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
     try {
       Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -2253,7 +2254,7 @@ public class DakBoard {
 
   static List<String> photoNames(String client) throws IOException {
     List<String> names = new ArrayList<>();
-    Path dir = ROOT.resolve("photos");
+    Path dir = DATA.resolve("photos");
     if (client != null) {
       if (!validClientSlug(client)) return names;
       dir = dir.resolve(client);
