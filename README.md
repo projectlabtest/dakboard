@@ -22,19 +22,19 @@ admin, device-to-output routing, and multi-client boards (one account per organi
 ## Requirements
 
 - JDK 11 or newer (developed and tested with Zulu JDK 17)
-- No external libraries — the whole server is `DakBoard.java`
+- No external libraries — the whole server is `EventBoard.java`
 
 ## Quick start
 
 ```bat
-javac DakBoard.java
-java DakBoard 8080
+javac EventBoard.java
+java EventBoard 8080
 ```
 
-Or double-click `run-dakboard.bat` (compiles and starts on port 8080).
+Or double-click `run-event-board.bat` (compiles and starts on port 8080).
 On first run you choose the admin password; it is stored in `admin-credential.json`
 (gitignored — never commit it). The username/password can also be supplied with the
-`DAKBOARD_ADMIN_USERNAME` and `DAKBOARD_ADMIN_PASSWORD` environment variables.
+`EVENT_BOARD_ADMIN_USERNAME` and `EVENT_BOARD_ADMIN_PASSWORD` environment variables.
 
 | URL | What it is |
 | --- | --- |
@@ -56,19 +56,19 @@ Old `/dakboard...` and `/lhc-events-board...` URLs redirect to the new paths.
 
 | File | Purpose |
 | --- | --- |
-| `DakBoard.java` | The entire server (HTTP, auth, storage) |
+| `EventBoard.java` | The entire server (HTTP, auth, storage) |
 | `admin.html`, `editor.html`, `login.html`, `clients.html` | Admin / editor / login / client pages |
 | `board.html`, `schedule.html`, `room.html`, `slides.html` | TV output pages |
 | `settings.json` | Platform board settings (managed from the admin page) |
 | `clients/<name>.json` | Per-client settings |
 | `photos/` | Uploaded photos (`/photos/...`; clients use `/photos/<client>/...`) |
 | `events.cache.json`, `sample-events.ics` | Cached and sample calendar events |
-| `run-dakboard.bat` | Windows launcher |
+| `run-event-board.bat` | Windows launcher |
 
 ## Deploying
 
 - **HTML/CSS/JS changes** are read on every request — replace the file, no restart needed.
-- **Java changes** — recompile (`javac DakBoard.java`) and restart.
+- **Java changes** — recompile (`javac EventBoard.java`) and restart.
 - Any machine on the LAN can open the TV URLs; the TVs only need the server address.
 
 ## Notes
@@ -76,3 +76,13 @@ Old `/dakboard...` and `/lhc-events-board...` URLs redirect to the new paths.
 - The platform sign-in (`/event-board/login`) manages the platform board. Client owners
   sign in on their own board's admin page and manage only their own content.
 - Credential files, `clients/`, and uploads are local instance data and are gitignored.
+
+## Upgrading from the DakBoard names
+
+The project is now called **Event Board**. Existing installations keep working:
+
+- `DakBoard.java` is now `EventBoard.java`. Run `javac EventBoard.java` and `java EventBoard 8080`.
+- `run-dakboard.bat` still works and forwards to `run-event-board.bat`.
+- Environment variables are now `EVENT_BOARD_*` (for example `EVENT_BOARD_ADMIN_PASSWORD`). The old `DAKBOARD_*` names are still read as a fallback, so nothing has to change at first.
+- The sign-in session cookie was renamed, so everyone is signed out once after the upgrade.
+- Old `/dakboard...` and `/lhc-events-board...` URLs redirect to the new paths.

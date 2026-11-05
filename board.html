@@ -253,7 +253,7 @@ async function fetchSettings(){
 /* Auto-refresh the TV when the admin saves settings or changes photos */
 let lastPhotos = "";
 let currentEvents = [];
- const EVENTS_CACHE_KEY = "dakboard-events-v2";
+ const EVENTS_CACHE_KEY = "event-board-events-v2";
 async function fetchBoardHtml(){
   const url = new URL(location.href);
   url.searchParams.set("tv", Date.now());

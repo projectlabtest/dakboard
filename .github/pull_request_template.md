@@ -10,7 +10,7 @@ Closes #
 
 <!-- How you validated the change: commands run, scenarios tested, and results. -->
 
-- [ ] `javac --release 11 DakBoard.java` compiles
+- [ ] `javac --release 11 EventBoard.java` compiles
 - [ ] Behavior changed by this PR was tested (describe above)
 
 ## Production readiness

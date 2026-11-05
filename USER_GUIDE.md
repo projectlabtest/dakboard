@@ -8,16 +8,16 @@ devices, photos, themes, and multi-client boards.
 ## 1. Install and first run
 
 1. Install **JDK 11+** (tested with Zulu JDK 17).
-2. Open a terminal (or double-click `run-dakboard.bat` on Windows):
+2. Open a terminal (or double-click `run-event-board.bat` on Windows):
 
    ```bat
-   javac DakBoard.java
-   java DakBoard 8080
+   javac EventBoard.java
+   java EventBoard 8080
    ```
 
 3. On first run you will be asked to choose the **admin password** (12+ characters).
    It is saved in `admin-credential.json` (gitignored). The username defaults to
-   `admin` — override with the `DAKBOARD_ADMIN_USERNAME` and `DAKBOARD_ADMIN_PASSWORD`
+   `admin` — override with the `EVENT_BOARD_ADMIN_USERNAME` and `EVENT_BOARD_ADMIN_PASSWORD`
    environment variables if needed.
 4. Open the admin page: `http://<server>:8080/event-board/login` and sign in.
    After login you land on the admin control page.
@@ -167,11 +167,11 @@ settings):
 
 - **HTML/CSS/JS changes** (`admin.html`, `board.html`, …) — files are read on every
   request: just replace the file. **No restart needed** (refresh with Ctrl+F5).
-- **Java changes** (`DakBoard.java`) — recompile and restart:
+- **Java changes** (`EventBoard.java`) — recompile and restart:
 
   ```bat
-  javac DakBoard.java
-  java DakBoard 8080
+  javac EventBoard.java
+  java EventBoard 8080
   ```
 
 ---
