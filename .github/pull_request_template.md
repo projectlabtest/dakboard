@@ -12,7 +12,7 @@ Refs #
 
 <!-- How you validated the change: commands run, scenarios tested, and results. -->
 
-- [ ] CI passed on this pull request (build-and-test and docker-smoke), or the failure is explained above
+- [ ] CI passed on this pull request, or CI is not yet on `main` and the local checks in CONTRIBUTING.md were run instead (explain which in the testing section)
 - [ ] Behavior changed by this PR was tested (describe above)
 
 ## Production readiness

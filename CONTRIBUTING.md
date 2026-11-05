@@ -38,6 +38,10 @@ Fixes and features follow the same path:
 
 ## Continuous integration
 
+**Status:** the workflow is added by PR #15 (build-and-test) and PR #16 (docker-smoke). Until
+those PRs are merged into `main`, the checks in this section are planned, not active. Run
+the local checks at the end of this section before opening a pull request.
+
 The workflow in `.github/workflows/ci.yml` runs on every pull request and on every push to
 `main`. It has two jobs:
 
