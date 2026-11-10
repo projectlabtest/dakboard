@@ -1540,14 +1540,21 @@ public class DakBoard {
   static void addIfUpcoming(List<Ev> out, ZonedDateTime now,
       ZonedDateTime todayStart, ZonedDateTime horizon, String title,
       String location, boolean allDay, ZonedDateTime s, ZonedDateTime e) {
-    if (out.size() >= MAX_COLLECTED_EVENTS) return;
     if (e.isBefore(now) || s.isAfter(horizon)) return;
     ZonedDateTime showStart = s.isBefore(todayStart) ? todayStart : s;
     out.add(new Ev(showStart, e, title, location, allDay));
+    if (out.size() >= MAX_COLLECTED_EVENTS) {
+      out.sort((a, b) -> a.start.compareTo(b.start));
+      while (out.size() > MAX_OUTPUT_EVENTS) out.remove(out.size() - 1);
+    }
   }
 
-  /** Upper bound on collected occurrences before sorting; output is still capped at 200. */
-  static final int MAX_COLLECTED_EVENTS = 5000;
+  /**
+   * Overrides are resolved before any occurrence is added, so keeping only the earliest
+   * MAX_OUTPUT_EVENTS while collecting gives the same result as sorting everything first.
+   */
+  static final int MAX_COLLECTED_EVENTS = 2000;
+  static final int MAX_OUTPUT_EVENTS = 200;
 
   /** A RECURRENCE-ID override: which instance it replaces, and how it changes the series. */
   static class Ovr {
@@ -1555,11 +1562,23 @@ public class DakBoard {
     final boolean range;
     final boolean cancelled;
     final Duration shift;
-    Ovr(Instant rid, boolean range, boolean cancelled, Duration shift) {
+    final Duration dur;
+    Ovr(Instant rid, boolean range, boolean cancelled, Duration shift, Duration dur) {
       this.rid = rid;
       this.range = range;
       this.cancelled = cancelled;
       this.shift = shift;
+      this.dur = dur;
+    }
+  }
+
+  /** An occurrence after overrides: its start and duration. */
+  static class Resolved {
+    final ZonedDateTime start;
+    final Duration dur;
+    Resolved(ZonedDateTime start, Duration dur) {
+      this.start = start;
+      this.dur = dur;
     }
   }
 
@@ -1568,23 +1587,25 @@ public class DakBoard {
    * override VEVENT or cancelled, otherwise the (possibly moved) occurrence. RANGE=THISANDFUTURE
    * applies to every occurrence from its RECURRENCE-ID onward, shifted by the override's change.
    */
-  static ZonedDateTime resolveOcc(ZonedDateTime occ, List<Ovr> overrides) {
+  static Resolved resolveOcc(ZonedDateTime occ, Duration dur, List<Ovr> overrides) {
     Instant at = occ.toInstant();
     Ovr best = null;
     for (Ovr o : overrides) {
       if (o.rid.equals(at)) return null;
       if (o.range && o.rid.isBefore(at) && (best == null || o.rid.isAfter(best.rid))) best = o;
     }
-    if (best == null) return occ;
+    if (best == null) return new Resolved(occ, dur);
     if (best.cancelled) return null;
-    return occ.plus(best.shift);
+    return new Resolved(occ.plus(best.shift), best.dur != null ? best.dur : dur);
   }
 
   static void addResolved(List<Ev> out, ZonedDateTime now, ZonedDateTime todayStart,
       ZonedDateTime horizon, String title, String location, boolean allDay,
       ZonedDateTime occ, Duration dur, List<Ovr> overrides) {
-    ZonedDateTime r = resolveOcc(occ, overrides);
-    if (r != null) addIfUpcoming(out, now, todayStart, horizon, title, location, allDay, r, r.plus(dur));
+    Resolved r = resolveOcc(occ, dur, overrides);
+    if (r != null) {
+      addIfUpcoming(out, now, todayStart, horizon, title, location, allDay, r.start, r.start.plus(r.dur));
+    }
   }
 
   static void expandEvent(List<Prop> ev, List<Ev> out,
@@ -1737,16 +1758,23 @@ public class DakBoard {
         boolean cancelled = st != null && "CANCELLED".equalsIgnoreCase(st.value.trim());
         Duration shift = Duration.ZERO;
         Prop ds = findProp(ev, "DTSTART");
+        Prop de = findProp(ev, "DTEND");
+        Duration odur = null;
         if (ds != null) {
           try {
-            shift = Duration.between(ridAt, parseWhen(ds.value, ds.params, new boolean[1]).toInstant());
+            Instant startAt = parseWhen(ds.value, ds.params, new boolean[1]).toInstant();
+            shift = Duration.between(ridAt, startAt);
+            if (de != null) {
+              Duration d = Duration.between(startAt, parseWhen(de.value, de.params, new boolean[1]).toInstant());
+              if (!d.isNegative() && !d.isZero()) odur = d;
+            }
           } catch (Exception ignored) {
             shift = Duration.ZERO;
           }
         }
         boolean range = rid.params.toUpperCase(Locale.ROOT).contains("RANGE=THISANDFUTURE");
         overrides.computeIfAbsent(uid.value.trim(), k -> new ArrayList<>())
-            .add(new Ovr(ridAt, range, cancelled, shift));
+            .add(new Ovr(ridAt, range, cancelled, shift, odur));
       } catch (Exception ignored) {
         // unparseable RECURRENCE-ID: nothing to replace
       }
