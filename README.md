@@ -65,6 +65,26 @@ Old `/dakboard...` and `/lhc-events-board...` URLs redirect to the new paths.
 | `events.cache.json`, `sample-events.ics` | Cached and sample calendar events |
 | `run-dakboard.bat` | Windows launcher |
 
+## Docker
+
+Requires Docker with Compose.
+
+```bash
+cp .env.example .env        # then set DAKBOARD_ADMIN_PASSWORD (12+ characters)
+docker compose up -d --build
+```
+
+- The display and admin pages are at `http://<host>:8080/event-board` (see the table above).
+- Platform data (settings, credentials, client boards, photos/videos, calendar cache) is stored in
+  the `event-board-data` named volume, mounted at `/data`. Recreating the container or upgrading the
+  image keeps this data. First start copies the default settings only if `settings.json` is missing.
+- The container runs as a non-root user (uid 10001).
+- **Backups:** `docker run --rm -v event-board-data:/data -v "$PWD":/backup alpine tar czf /backup/event-board-data.tgz -C /data .`
+- **Restore** (stop the container first with `docker compose stop`): `docker run --rm -v event-board-data:/data -v "$PWD":/backup alpine sh -c "cd /data && tar xzf /backup/event-board-data.tgz"`
+- **Upgrades:** `git pull`, then `docker compose up -d --build`.
+- **Logs:** `docker compose logs -f event-board`.
+- Credentials and instance data are never copied into the image (see `.dockerignore`).
+
 ## Deploying
 
 - **HTML/CSS/JS changes** are read on every request — replace the file, no restart needed.

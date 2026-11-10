@@ -1,0 +1,26 @@
+# Git metadata and local tooling
+.git
+.github
+.gitignore
+.dockerignore
+tests
+*.md
+run-dakboard.bat
+run-event-board.bat
+
+# Compiled output is built inside the image
+*.class
+
+# Instance data and credentials must never enter the build context or image layers
+settings.json
+settings.json.tmp
+settings.default.json.bak
+clients/
+photos/
+events.cache.json
+admin-credential*
+admin-credentials.txt
+editor-credential*
+*.tmp
+.env
+*.log
