@@ -82,3 +82,12 @@ jobs:
       - name: Stop container
         if: always()
         run: docker rm -f event-board-ci || true
+
+      - name: Backup and restore drill (commands from README.md)
+        run: |
+          docker run --rm -v event-board-data:/data alpine sh -c "echo SENTINEL-BACKUP > /data/sentinel.txt"
+          docker run --rm -v event-board-data:/data -v "$PWD":/backup alpine tar czf /backup/event-board-data.tgz -C /data .
+          docker volume rm event-board-data
+          docker run --rm -v event-board-data:/data -v "$PWD":/backup alpine sh -c "cd /data && tar xzf /backup/event-board-data.tgz"
+          docker run --rm -v event-board-data:/data alpine cat /data/sentinel.txt | grep -q SENTINEL-BACKUP
+          docker volume rm event-board-data
