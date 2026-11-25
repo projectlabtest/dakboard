@@ -58,7 +58,7 @@ import javax.crypto.spec.PBEKeySpec;
 public class DakBoard {
 
   static Path ROOT = Paths.get("").toAbsolutePath();
-  static final long MAX_BODY = 128L * 1024 * 1024; // 128 MB (photo/video uploads)
+  static final long MAX_BODY = 512L * 1024 * 1024; // 512 MB (photo/video uploads)
   static final String[] PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"};
   static final String[] VIDEO_EXTS = {".mp4", ".webm"};
   static final String SESSION_COOKIE = "DAKBOARD_SESSION";
